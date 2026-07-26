@@ -24,8 +24,9 @@
         .tab-btn.active { color: var(--accent); }
         @media (min-width: 769px) { .tab-btn.active::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 100%; height: 3px; background: var(--accent); } }
 
-        .sub-nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #333; padding-bottom: 1rem; }
-        .sub-btn { background: var(--card-bg); color: var(--text-muted); border: none; padding: 0.4rem 1rem; border-radius: 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+        .sub-nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #333; padding-bottom: 1rem; overflow-x: auto; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        .sub-nav::-webkit-scrollbar { display: none; }
+        .sub-btn { background: var(--card-bg); color: var(--text-muted); border: none; padding: 0.4rem 1rem; border-radius: 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; flex-shrink: 0; }
         .sub-btn.active { background: var(--text-main); color: black; }
 
         .tab-content { display: none; padding: 2rem; }
@@ -152,6 +153,13 @@
 
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
+        <div id="notification-banner" style="display: none; background: linear-gradient(45deg, #FFD600, #ff9500); color: black; padding: 1rem; border-radius: 12px; margin-bottom: 2rem; font-weight: 600; cursor: pointer; align-items: center; justify-content: space-between;">
+            <div id="notification-text" style="display:flex; align-items:center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span id="notification-msg"></span>
+            </div>
+            <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: black; font-size: 1.5rem; cursor: pointer; padding: 0;">&times;</button>
+        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
             <div class="stat-card">
                 <div style="font-size: 2.5rem; color: var(--accent); font-weight: 900;" id="st-time">0h</div>
@@ -251,6 +259,12 @@
             </label>
             <button class="btn-action" style="margin-top:15px; width:100%; padding:12px;" id="btn-sync-tz" onclick="syncLibraryTimezones()">Run Timezone Fix on Existing Library</button>
             <p id="sync-tz-status" style="color:var(--accent); margin-top:10px; text-align:center; font-weight:bold;"></p>
+        </div>
+        
+        <h3 style="margin-top: 2rem;">Notifications</h3>
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; margin-bottom: 2rem;">
+            <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Get native push notifications on your Laptop or Phone when an episode from your Watchlist airs today.</p>
+            <button class="btn-action" style="width:100%; padding:12px;" onclick="if(Notification.permission !== 'granted') Notification.requestPermission().then(p => { if(p==='granted') alert('Notifications enabled!'); })">Enable Push Notifications</button>
         </div>
 
         <h3 style="margin-top: 2rem;">Data Management</h3>
@@ -1142,8 +1156,17 @@
                 c.innerHTML = "<p>No upcoming media.</p>";
             } else {
                 let htmlStr = '';
+                let airingToday = null;
+                const todayStr = new Date().toISOString().split('T')[0];
+
                 st.upcoming.forEach(ep => {
-                    const diff = Math.ceil(Math.abs(new Date(ep.air_date) - new Date()) / 86400000);
+                    if (ep.air_date === todayStr) airingToday = ep;
+                    
+                    const d1 = new Date(todayStr);
+                    const d2 = new Date(ep.air_date);
+                    let diff = Math.ceil((d2 - d1) / 86400000);
+                    if(diff < 0) diff = 0;
+                    
                     const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
                     const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
                     
@@ -1174,6 +1197,33 @@
                     `;
                 });
                 c.innerHTML = htmlStr;
+                
+                const banner = document.getElementById('notification-banner');
+                if (airingToday) {
+                    banner.style.display = 'flex';
+                    document.getElementById('notification-msg').innerText = `🔥 ${airingToday.show_title} airs today!`;
+                    
+                    banner.onclick = () => {
+                        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                            Notification.requestPermission().then(p => {
+                                if(p === 'granted') alert("Push Notifications enabled!");
+                            });
+                        }
+                    };
+
+                    if (Notification.permission === 'granted') {
+                        const notifKey = 'tvt_notified_' + airingToday.id;
+                        if (localStorage.getItem(notifKey) !== todayStr) {
+                            new Notification("TV Time: New Episode!", {
+                                body: `${airingToday.show_title} airs today!`,
+                                icon: 'icon.jpg'
+                            });
+                            localStorage.setItem(notifKey, todayStr);
+                        }
+                    }
+                } else {
+                    banner.style.display = 'none';
+                }
             }
         }
 
