@@ -4,13 +4,27 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function fetchAll(queryBuilderFn) {
+async function fetchAllParallel(table, select) {
+    const { count } = await supabaseClient.from(table).select('*', { count: 'exact', head: true });
+    const promises = [];
+    for (let from = 0; from < count; from += (step + 1)) {
+        promises.push(supabaseClient.from(table).select(select).range(from, from + step));
+    }
+    const results = await Promise.all(promises);
+    let allData = [];
+    for (const res of results) {
+        if (res.error) console.error('Supabase fetch error:', res.error);
+        else if (res.data) allData = allData.concat(res.data);
+    }
+    return allData;
+}
+
+async function fetchAll(queryBuilderFn, step = 999) {
     let allData = [];
     let from = 0;
-    const step = 999;
     while(true) {
         const { data, error } = await queryBuilderFn().range(from, from + step);
-        if (error) { console.error('Supabase fetch error:', error); break; }
+        if (error) { console.error('Supabase fetch error:', JSON.stringify(error)); break; }
         if (!data || data.length === 0) break;
         allData = allData.concat(data);
         if (data.length <= step) break;
