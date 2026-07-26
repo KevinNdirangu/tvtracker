@@ -175,7 +175,7 @@ const api = {
             if (data.origin_country && data.origin_country.some(c => americas.includes(c))) shouldShift = true;
         }
 
-        const { data: existingShow } = await supabaseClient.from('shows').select('id').eq('api_id', data.id).single();
+        const { data: existingShow } = await supabaseClient.from('shows').select('id').eq('api_id', data.id).maybeSingle();
         let localId;
         
         if (existingShow) {
