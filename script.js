@@ -4,8 +4,6 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-<<<<<<< HEAD
-
 async function fetchAll(queryBuilderFn) {
     let allData = [];
     let from = 0;
@@ -25,12 +23,6 @@ const api = {
     async getLocalIds() {
         const data = await fetchAll(() => supabaseClient.from('shows').select('api_id'));
         return data.map(d => d.api_id);
-=======
-const api = {
-    async getLocalIds() {
-        const { data } = await supabaseClient.from('shows').select('api_id');
-        return data ? data.map(d => d.api_id) : [];
->>>>>>> 9451fcb44d4010ddc319b3bc56d089f02d1267ae
     },
 
     async getTrending(type = 'all', page = 1) {
@@ -47,24 +39,15 @@ const api = {
 
     async getLibrary() {
         // Fetch shows with nested episodes and watch history
-<<<<<<< HEAD
         const shows = await fetchAll(() => supabaseClient.from('shows').select(`
-=======
-        const { data: shows } = await supabaseClient.from('shows').select(`
->>>>>>> 9451fcb44d4010ddc319b3bc56d089f02d1267ae
             *,
             episodes (
                 id, season_number, runtime, air_date,
                 watch_history (id, watched_at)
             )
-<<<<<<< HEAD
         `));
-=======
-        `);
         
         if (!shows) return [];
->>>>>>> 9451fcb44d4010ddc319b3bc56d089f02d1267ae
-
         return shows.map(s => {
             let watched = 0;
             let aired = 0;
@@ -98,20 +81,11 @@ const api = {
 
     async getCalendar() {
         const today = new Date().toISOString().split('T')[0];
-<<<<<<< HEAD
         const data = await fetchAll(() => supabaseClient.from('episodes')
             .select(`*, shows(api_id, title, poster_url, type, is_stopped)`)
             .gte('air_date', today)
             .order('air_date', { ascending: true }));
         
-=======
-        const { data } = await supabaseClient.from('episodes')
-            .select(`*, shows(api_id, title, poster_url, type, is_stopped)`)
-            .gte('air_date', today)
-            .order('air_date', { ascending: true });
-        
-        if (!data) return [];
->>>>>>> 9451fcb44d4010ddc319b3bc56d089f02d1267ae
         return data.filter(e => e.shows && e.shows.is_stopped === 0).map(e => ({
             id: e.id, api_id: e.shows.api_id, season_number: e.season_number, 
             episode_number: e.episode_number, ep_title: e.title, air_date: e.air_date,
@@ -329,11 +303,7 @@ const api = {
             }));
         }
 
-<<<<<<< HEAD
         const watched = await fetchAll(() => supabaseClient.from('watch_history').select('episodes(runtime)'));
-=======
-        const { data: watched } = await supabaseClient.from('watch_history').select('episodes(runtime)');
->>>>>>> 9451fcb44d4010ddc319b3bc56d089f02d1267ae
         let epCount = 0;
         let tm = 0;
         if (watched) {
