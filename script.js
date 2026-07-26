@@ -52,14 +52,25 @@ const api = {
     },
 
     async getLibrary() {
-        // Fetch shows with nested episodes and watch history
-        const shows = await fetchAll(() => supabaseClient.from('shows').select(`
-            *,
-            episodes (
-                id, season_number, runtime, air_date,
-                watch_history (id, watched_at)
-            )
-        `));
+        const [shows, episodes, history] = await Promise.all([
+            fetchAllParallel('shows', '*'),
+            fetchAllParallel('episodes', 'id, show_id, season_number, runtime, air_date'),
+            fetchAllParallel('watch_history', 'id, episode_id, watched_at')
+        ]);
+
+        const showMap = new Map();
+        shows.forEach(s => { s.episodes = []; showMap.set(s.id, s); });
+
+        const epMap = new Map();
+        episodes.forEach(ep => {
+            ep.watch_history = [];
+            epMap.set(ep.id, ep);
+            if (showMap.has(ep.show_id)) showMap.get(ep.show_id).episodes.push(ep);
+        });
+
+        history.forEach(h => {
+            if (epMap.has(h.episode_id)) epMap.get(h.episode_id).watch_history.push(h);
+        });
         
         if (!shows) return [];
         return shows.map(s => {
@@ -95,16 +106,26 @@ const api = {
 
     async getCalendar() {
         const today = new Date().toISOString().split('T')[0];
-        const data = await fetchAll(() => supabaseClient.from('episodes')
-            .select(`*, shows(api_id, title, poster_url, type, is_stopped)`)
+        const { data: eps } = await supabaseClient.from('episodes')
+            .select('id, show_id, season_number, episode_number, title, air_date')
             .gte('air_date', today)
-            .order('air_date', { ascending: true }));
+            .order('air_date', { ascending: true })
+            .limit(300);
+            
+        const shows = await fetchAllParallel('shows', 'id, api_id, title, poster_url, type, is_stopped');
+        const showMap = new Map();
+        shows.forEach(s => showMap.set(s.id, s));
         
-        return data.filter(e => e.shows && e.shows.is_stopped === 0).map(e => ({
-            id: e.id, api_id: e.shows.api_id, season_number: e.season_number, 
-            episode_number: e.episode_number, ep_title: e.title, air_date: e.air_date,
-            show_title: e.shows.title, poster_url: e.shows.poster_url, type: e.shows.type
-        }));
+        return eps
+            .filter(e => showMap.has(e.show_id) && showMap.get(e.show_id).is_stopped === 0)
+            .map(e => {
+                const s = showMap.get(e.show_id);
+                return {
+                    id: e.id, api_id: s.api_id, season_number: e.season_number,
+                    episode_number: e.episode_number, ep_title: e.title, air_date: e.air_date,
+                    show_title: s.title, poster_url: s.poster_url, type: s.type
+                };
+            });
     },
 
     async getShowDetails(localId) {
@@ -317,15 +338,16 @@ const api = {
             }));
         }
 
-        const watched = await fetchAll(() => supabaseClient.from('watch_history').select('episodes(runtime)'));
-        let epCount = 0;
+        const history = await fetchAllParallel('watch_history', 'episode_id');
+        const episodes = await fetchAllParallel('episodes', 'id, runtime');
+        const epMap = new Map();
+        episodes.forEach(e => epMap.set(e.id, e.runtime || 0));
+
+        let epCount = history.length;
         let tm = 0;
-        if (watched) {
-            epCount = watched.length;
-            watched.forEach(w => {
-                if(w.episodes) tm += (w.episodes.runtime || 45);
-            });
-        }
+        history.forEach(h => {
+            tm += (epMap.get(h.episode_id) || 45);
+        });
         
         return { 
             episodes: epCount, 
