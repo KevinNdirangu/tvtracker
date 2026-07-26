@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>TV Time DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js"></script>
     <style>
         :root { --bg-color: #000; --card-bg: #1c1c1e; --text-main: #fff; --text-muted: #8e8e93; --accent: #FFD600; --tag-movie: #ff3b30; --tag-tv: #34c759; }
         * { -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg-color); color: var(--text-main); font-family: system-ui, sans-serif; margin: 0; padding: 0; padding-bottom: 4rem; overscroll-behavior-y: none; user-select: none; }
+        body { background: var(--bg-color); color: var(--text-main); font-family: system-ui, sans-serif; margin: 0; padding: 0; padding-bottom: 4rem; overscroll-behavior-y: none; user-select: none; -webkit-overflow-scrolling: touch; }
         
         header { padding: 1.5rem 2rem; position: sticky; top: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 100; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         h1 { margin: 0; font-size: 1.8rem; font-weight: 800; }
@@ -73,23 +73,24 @@
         .ep-watched .custom-checkbox::after { content: '✓'; color: black; font-weight: bold; font-size: 14px; }
         
         .season-content { padding: 0 1rem; display: none; }
-        .season-content.open { display: block; }
-        @media (max-width: 768px) {
-            header { padding: 1rem; flex-direction: column; gap: 1rem; align-items: stretch; border-bottom: none; }
-            h1 { font-size: 1.5rem; text-align: center; margin-bottom: 0; }
-            .search-box { width: 100%; box-sizing: border-box; }
+        .season-content.open { display: block; }        @media (max-width: 768px) {
+            header { padding: env(safe-area-inset-top, 1rem) 1rem 1rem 1rem; flex-direction: column; gap: 0; align-items: stretch; border-bottom: none; background: var(--bg-color); backdrop-filter: none; }
+            header h1 { display: none; }
+            .search-box { width: 100%; box-sizing: border-box; background: #1c1c1e; padding: 0.8rem 1rem; }
             
             .tab-container { 
                 position: fixed; bottom: 0; left: 0; width: 100%; 
-                background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); 
+                background: rgba(28,28,30,0.85); backdrop-filter: blur(10px); 
                 border-top: 1px solid #333; z-index: 200; 
-                display: flex; justify-content: space-around; gap: 0; padding: 0.5rem 0; 
-                padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+                display: flex; justify-content: space-around; gap: 0; padding: 0.8rem 0; 
+                padding-bottom: env(safe-area-inset-bottom, 0.8rem);
             }
-            .tab-btn { flex: 1; padding: 0.5rem 0; }
-            .tab-btn span { font-size: 0.7rem; font-weight: 700; }
+            .tab-btn { flex: 1; padding: 0; }
+            .tab-btn span { display: none; }
+            .tab-btn svg { width: 26px; height: 26px; }
             
-            body { padding-bottom: 5rem; }
+            body { padding-bottom: 6rem; }
+            .tab-content { padding: 1rem; }
             
             .show-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.75rem; }
             .card-info { padding: 1rem 0.5rem 0.5rem; }
@@ -619,12 +620,11 @@
                 }
             }
             
-            // Re-render library in background
+            // Re-render library
             const t = document.getElementById('libSearchInput').value;
             if(!t) {
-                api.getLibrary().then(lib => {
-                    localStorage.setItem('tvt_lib', JSON.stringify(lib));
-                });
+                const lib = await api.getLibrary();
+                localStorage.setItem('tvt_lib', JSON.stringify(lib));
             }
             if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
         }

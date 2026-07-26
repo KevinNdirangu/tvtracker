@@ -218,7 +218,7 @@ const api = {
         await supabaseClient.from('shows').update({ is_stopped: 0 }).eq('id', localId);
 
         if (markSeen && isMovie) {
-            const { data: epData } = await supabaseClient.from('episodes').select('id').eq('show_id', localId).single();
+            const { data: epData } = await supabaseClient.from('episodes').select('id').eq('show_id', localId).maybeSingle();
             if (epData) await this.logEpisode(epData.id);
         }
         return true;
