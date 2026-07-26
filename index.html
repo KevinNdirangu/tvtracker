@@ -141,7 +141,7 @@
                 <span>Settings</span>
             </button>
         </div>
-        <input type="text" class="search-box" id="searchInput" placeholder="Search movies or shows..." onkeyup="if(event.key === 'Enter') executeSearch()">
+        <input type="text" class="search-box" id="searchInput" placeholder="Search movies or shows..." oninput="debouncedSearch()">
     </header>
 
     <!-- DASHBOARD -->
@@ -274,6 +274,7 @@
                 </div>
                 <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                     <button class="btn-action" style="flex-grow:1; background: #333; color: white;" onclick="copyCalUrl()">Copy URL</button>
+                    <button class="btn-action" style="flex-grow:1; background: #34c759; color: black; font-weight: bold;" onclick="subscribeGoogleCal()">Subscribe in Google Calendar</button>
                 </div>
                 <script>
                     document.addEventListener('DOMContentLoaded', () => {
@@ -283,6 +284,10 @@
                         const url = document.getElementById('cloud-cal-url').value;
                         navigator.clipboard.writeText(url);
                         alert('URL Copied! Add this to your calendar app.');
+                    }
+                    function subscribeGoogleCal() {
+                        const url = document.getElementById('cloud-cal-url').value;
+                        window.open('https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(url), '_blank');
                     }
                 </script>
                 </div>
@@ -415,17 +420,38 @@
                 if(displayDate !== lastDate) {
                     if(htmlStr !== '') htmlStr += '</div>';
                     htmlStr += `<h3 style="margin-top:20px; border-bottom:1px solid #333; padding-bottom:10px; color:${isToday ? 'var(--accent)' : 'white'};">${displayDate}</h3>`;
-                    htmlStr += '<div style="display: flex; flex-direction: column; gap: 10px;">';
+                    htmlStr += '<div class="show-grid">';
                     lastDate = displayDate;
                 }
                 
+                const diff = Math.ceil((epDate - new Date()) / 86400000);
+                const diffText = diff <= 0 ? 'TODAY' : diff + ' DAYS';
                 const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
                 const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
                 
+                const d = new Date(ep.air_date);
+                const startStr = d.toISOString().split('T')[0].replace(/-/g, '');
+                const nextD = new Date(d);
+                nextD.setDate(nextD.getDate() + 1);
+                const endStr = nextD.toISOString().split('T')[0].replace(/-/g, '');
+                
+                const encTitle = encodeURIComponent(titleText);
+                const encDetails = encodeURIComponent(subtitle);
+                const gCalLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encTitle}&dates=${startStr}/${endStr}&details=${encDetails}`;
+                
                 htmlStr += `
-                    <div style="background: var(--card-bg); padding:15px; border-radius:8px; border-left: 4px solid var(--accent); cursor:pointer;" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
-                        <div style="font-weight:bold; font-size:1.1rem;">${titleText}</div>
-                        <div style="color:var(--text-muted); font-size:0.9rem;">${subtitle}</div>
+                    <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
+                        <img src="${ep.poster_url}" class="poster-img">
+                        <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diffText}</div>
+                        
+                        <button onclick="event.stopPropagation(); window.open('${gCalLink}', '_blank')" class="btn-add" style="background:white; color:black;" title="Add to Google Calendar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </button>
+                        
+                        <div class="card-info">
+                            <h2 class="show-title" style="font-size:0.9rem;">${titleText}</h2>
+                            <div style="font-size:0.75rem; color:#aaa; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${subtitle}</div>
+                        </div>
                     </div>
                 `;
             });
@@ -433,8 +459,21 @@
             c.innerHTML = htmlStr;
         }
 
+        let searchTimeout;
+        function debouncedSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if(document.getElementById('searchInput').value.trim() === '') {
+                    // if cleared, revert to trending
+                    loadDiscover(1, false);
+                } else {
+                    executeSearch(1, false);
+                }
+            }, 500);
+        }
+
         async function executeSearch(page = 1, append = false) {
-            const q = document.getElementById('searchInput').value;
+            const q = document.getElementById('searchInput').value.trim();
             if(!q) return;
             
             if(!append) {
@@ -496,11 +535,18 @@
             });
             
             if (items.length > 0) {
-                const btnContainer = document.createElement('div');
-                btnContainer.id = 'btn-load-more';
-                btnContainer.style = 'grid-column: 1 / -1; display:flex; justify-content:center; margin-top: 2rem; margin-bottom: 2rem;';
-                btnContainer.innerHTML = `<button onclick="loadMoreDiscover()" style="background:transparent; border: 2px solid var(--accent); color:var(--accent); padding:12px 40px; border-radius:30px; font-weight:bold; font-size:1.1rem; cursor:pointer; transition:all 0.3s;" onmouseover="this.style.background='var(--accent)'; this.style.color='black'" onmouseout="this.style.background='transparent'; this.style.color='var(--accent)'">Load More Discoveries</button>`;
-                c.appendChild(btnContainer);
+                const sentinel = document.createElement('div');
+                sentinel.id = 'btn-load-more'; // keeping id to remove it next time
+                sentinel.style = 'grid-column: 1 / -1; height: 20px;';
+                c.appendChild(sentinel);
+                
+                const observer = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting) {
+                        observer.disconnect();
+                        loadMoreDiscover();
+                    }
+                }, { rootMargin: '200px' });
+                observer.observe(sentinel);
             }
         }
 
