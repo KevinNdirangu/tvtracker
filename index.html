@@ -157,7 +157,7 @@
 
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
-        <h2 style="margin-top:0; margin-bottom:2rem; font-size: 2.2rem;">Welcome to TV Time, <span style="color:var(--accent);">Kevin</span>!</h2>
+        <h2 id="dash-greeting" style="margin-top:0; margin-bottom:2rem; font-size: 2.2rem;">Welcome, <span style="color:var(--accent);">Kevin</span>!</h2>
         
         <h3 style="margin: 0; margin-bottom: 1rem;">Continue Watching</h3>
         <div id="dash-continue-watching" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
@@ -704,7 +704,7 @@
                 try {
                     libraryData = JSON.parse(cached);
                     renderLibraryGrid();
-                    renderContinueWatching();
+                    renderLibraryCarousels();
                 } catch(e){}
             }
             
@@ -725,7 +725,7 @@
             }
             
             renderLibraryGrid();
-            renderContinueWatching();
+            renderLibraryCarousels();
         }
         
         function renderLibraryCarousels() {
@@ -1196,6 +1196,14 @@
         }
         
         function renderDash(st) {
+            // Dynamic Greeting
+            const hour = new Date().getHours();
+            let greeting = 'Good evening';
+            if (hour >= 5 && hour < 12) greeting = 'Good morning';
+            else if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+            const greetEl = document.getElementById('dash-greeting');
+            if (greetEl) greetEl.innerHTML = `${greeting}, <span style="color:var(--accent);">Kevin</span>!`;
+
             let t = '';
             if(st.time.m>0) t += `${st.time.m}mo `;
             if(st.time.d>0) t += `${st.time.d}d `;
