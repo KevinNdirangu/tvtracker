@@ -157,6 +157,14 @@
 
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
+        <h2 style="margin-top:0; margin-bottom:2rem; font-size: 2.2rem;">Welcome to TV Time, <span style="color:var(--accent);">Kevin</span>!</h2>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin: 0; margin-bottom: 1rem;">Continue Watching</h3>
+        </div>
+        <div id="dash-continue-watching" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+
+        <h3 style="margin: 0; margin-bottom: 1rem;">Your Stats</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
             <div class="stat-card">
                 <div style="font-size: 2.5rem; color: var(--accent); font-weight: 900;" id="st-time">0h</div>
@@ -710,6 +718,7 @@
                 try {
                     libraryData = JSON.parse(cached);
                     renderLibraryGrid();
+                    renderContinueWatching();
                 } catch(e){}
             }
             
@@ -730,6 +739,33 @@
             }
             
             renderLibraryGrid();
+            renderContinueWatching();
+        }
+        
+        function renderContinueWatching() {
+            if (!libraryData) return;
+            const watching = libraryData.filter(s => s.type === 'tv' && s.progress > 0 && s.progress < s.total_episodes && s.is_stopped === 0);
+            
+            // Sort by most recently updated if possible. We don't have updated_at, so fallback to sorting by id descending
+            watching.sort((a,b) => b.id - a.id); 
+            
+            const cwHtml = watching.slice(0, 15).map(s => {
+                const pct = s.total_episodes > 0 ? Math.round((s.progress/s.total_episodes)*100) : 0;
+                return `
+                    <div class="poster-card" onclick="openModal(${s.api_id}, '${s.type}', true, ${s.id})" style="flex: 0 0 140px; min-width: 140px; position: relative;">
+                        <img src="${s.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                        <div style="position: absolute; bottom: 12px; left: 8px; right: 8px; background:rgba(0,0,0,0.85); color:white; font-size:0.75rem; padding:4px; text-align:center; border-radius: 4px; border: 1px solid #333; font-weight: bold;">
+                            Resume Watching
+                        </div>
+                        <div class="progress-bar-bg" style="position: absolute; bottom: 0; left: 0; right: 0; margin: 0; border-radius: 0 0 12px 12px;"><div class="progress-bar-fill" style="width:${pct}%; background:var(--accent);"></div></div>
+                    </div>
+                `;
+            }).join('');
+            
+            const contElement = document.getElementById('dash-continue-watching');
+            if (contElement) {
+                contElement.innerHTML = cwHtml || '<p style="color:#666; font-size: 0.9rem;">No shows currently in progress.</p>';
+            }
         }
 
         function renderLibraryGrid() {
