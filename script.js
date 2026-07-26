@@ -181,13 +181,30 @@ const api = {
         if (existingShow) {
             localId = existingShow.id;
         } else {
-            const { data: insertedShow, error } = await supabaseClient.from('shows').insert({
-                api_id: data.id, title: data.title || data.name, genre: (data.genres || []).map(g=>g.name).join(', '),
-                overview: data.overview, poster_url: posterUrl, total_episodes: isMovie ? 1 : (data.number_of_episodes || 0),
-                status: data.status, type: type, timezone_offset: shouldShift ? 1 : 0
-            }).select().single();
+            let insertedShow = null;
+            let error = null;
             
-            if (error) {
+            for (let attempt = 1; attempt <= 10; attempt++) {
+                const { data: maxIdData } = await supabaseClient.from('shows').select('id').order('id', { ascending: false }).limit(1).maybeSingle();
+                const nextShowId = (maxIdData ? maxIdData.id : 0) + attempt;
+                
+                const res = await supabaseClient.from('shows').insert({
+                    id: nextShowId,
+                    api_id: data.id, title: data.title || data.name, genre: (data.genres || []).map(g=>g.name).join(', '),
+                    overview: data.overview, poster_url: posterUrl, total_episodes: isMovie ? 1 : (data.number_of_episodes || 0),
+                    status: data.status, type: type, timezone_offset: shouldShift ? 1 : 0
+                }).select().single();
+                
+                if (!res.error) {
+                    insertedShow = res.data;
+                    error = null;
+                    break;
+                }
+                error = res.error;
+                if (error.code !== '23505') break; // If it's not a duplicate key error, don't retry
+            }
+            
+            if (!insertedShow) {
                 console.error("Error inserting show:", error);
                 throw error;
             }
