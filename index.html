@@ -139,6 +139,10 @@
                 <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 <span>Calendar</span>
             </button>
+            <button class="tab-btn" onclick="nav('notifications', this)">
+                <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span>Notifications</span>
+            </button>
             <button class="nav-btn tab-btn" id="btn-settings" onclick="nav('settings', this)">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 <span>Settings</span>
@@ -153,13 +157,6 @@
 
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
-        <div id="notification-banner" style="display: none; background: linear-gradient(45deg, #FFD600, #ff9500); color: black; padding: 1rem; border-radius: 12px; margin-bottom: 2rem; font-weight: 600; cursor: pointer; align-items: center; justify-content: space-between;">
-            <div id="notification-text" style="display:flex; align-items:center; gap: 8px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <span id="notification-msg"></span>
-            </div>
-            <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: black; font-size: 1.5rem; cursor: pointer; padding: 0;">&times;</button>
-        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
             <div class="stat-card">
                 <div style="font-size: 2.5rem; color: var(--accent); font-weight: 900;" id="st-time">0h</div>
@@ -171,7 +168,7 @@
             </div>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 style="margin: 0;">Incoming Tracker</h3>
+            <h3 style="margin: 0;">Data Sync</h3>
             <div style="display:flex; gap:10px;">
                 <button class="btn-action" onclick="exportCalendar()" style="display:flex; align-items:center; gap:8px; background:#333; color:white;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -183,6 +180,20 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div id="tab-notifications" class="tab-content">
+        <h2 style="margin-top: 0; margin-bottom: 2rem;">Notifications</h2>
+        <div id="notification-banner" style="display: none; background: linear-gradient(45deg, #FFD600, #ff9500); color: black; padding: 1rem; border-radius: 12px; margin-bottom: 2rem; font-weight: 600; cursor: pointer; align-items: center; justify-content: space-between;">
+            <div id="notification-text" style="display:flex; align-items:center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span id="notification-msg"></span>
+            </div>
+            <button onclick="this.parentElement.style.display='none'" style="background: none; border: none; color: black; font-size: 1.5rem; cursor: pointer; padding: 0;">&times;</button>
+        </div>
+        
+        <h3 style="margin-top: 0; margin-bottom: 1rem;">Upcoming Tracker</h3>
         <div id="dash-incoming" class="show-grid"></div>
     </div>
 
@@ -395,11 +406,14 @@
             document.getElementById('tab-' + tab).classList.add('active');
             if(el) el.classList.add('active');
             if(tab === 'dashboard') loadDash();
+            if(tab === 'notifications') loadDash();
             if(tab === 'discover') loadDiscover();
             if(tab === 'tracking') loadLibrary();
             if(tab === 'calendar') loadCalendar();
             if(tab === 'settings') loadSettings();
             if(tab === 'stats') loadStats();
+            
+            localStorage.setItem('tvt_last_tab', tab);
         }
 
         async function setTheme(color) {
@@ -1281,7 +1295,14 @@
         }
 
         // Init
-        loadDash();
+        const savedTab = localStorage.getItem('tvt_last_tab') || 'dashboard';
+        const savedBtn = document.querySelector(`.tab-btn[onclick*="'${savedTab}'"]`);
+        if (savedTab !== 'dashboard' && savedBtn) {
+            nav(savedTab, savedBtn);
+        } else {
+            nav('dashboard', document.querySelector('.tab-btn'));
+        }
+        
         loadDiscover();
         loadLibrary();
     </script>
