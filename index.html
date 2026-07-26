@@ -738,11 +738,46 @@
         async function exportCalendar() {
             const btn = document.querySelector('button[onclick="exportCalendar()"]');
             if(btn) { btn.innerText = "Exporting..."; btn.disabled = true; }
-            const result = await ipcRenderer.invoke('export-calendar');
-            alert(result.msg);
-            if(btn) { 
-                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export .ics`; 
-                btn.disabled = false; 
+            try {
+                const calData = await window.ipcRenderer.invoke('get-calendar');
+                if (!calData || calData.length === 0) {
+                    alert("Calendar is empty or failed to load.");
+                    return;
+                }
+                
+                let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TV Tracker//EN\r\n";
+                calData.forEach(ep => {
+                    const dtStart = ep.air_date.replace(/-/g, '') + 'T000000Z';
+                    const d = new Date(ep.air_date);
+                    d.setDate(d.getDate() + 1);
+                    const dtEnd = d.toISOString().split('T')[0].replace(/-/g, '') + 'T000000Z';
+                    
+                    ics += "BEGIN:VEVENT\r\n";
+                    ics += `UID:${ep.id}@tvtracker\r\n`;
+                    ics += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\r\n`;
+                    ics += `DTSTART;VALUE=DATE:${dtStart.substring(0,8)}\r\n`;
+                    ics += `DTEND;VALUE=DATE:${dtEnd.substring(0,8)}\r\n`;
+                    ics += `SUMMARY:${ep.show_title} - ${ep.season_number}x${ep.episode_number} - ${ep.ep_title}\r\n`;
+                    ics += "END:VEVENT\r\n";
+                });
+                ics += "END:VCALENDAR";
+
+                const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tvtracker.ics';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert("Export failed: " + e.message);
+            } finally {
+                if(btn) { 
+                    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export .ics`; 
+                    btn.disabled = false; 
+                }
             }
         }
         async function setupGist() {
