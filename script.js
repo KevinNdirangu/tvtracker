@@ -364,20 +364,44 @@ const api = {
         }
 
         const history = await fetchAllParallel('watch_history', 'episode_id');
-        const episodes = await fetchAllParallel('episodes', 'id, runtime');
+        const episodes = await fetchAllParallel('episodes', 'id, runtime, air_date');
         const epMap = new Map();
-        episodes.forEach(e => epMap.set(e.id, e.runtime || 0));
+        episodes.forEach(e => epMap.set(e.id, { runtime: e.runtime || 0, air_date: e.air_date }));
 
         let epCount = history.length;
         let tm = 0;
+        let decades = {};
+        
         history.forEach(h => {
-            tm += (epMap.get(h.episode_id) || 45);
+            const ep = epMap.get(h.episode_id);
+            if (ep) {
+                tm += (ep.runtime || 45);
+                if (ep.air_date) {
+                    const year = parseInt(ep.air_date.split('-')[0]);
+                    if (!isNaN(year)) {
+                        const dec = Math.floor(year / 10) * 10;
+                        decades[dec] = (decades[dec] || 0) + 1;
+                    }
+                }
+            } else {
+                tm += 45;
+            }
         });
+        
+        let favDecade = "Unknown";
+        let maxDec = 0;
+        for (let d in decades) {
+            if (decades[d] > maxDec) {
+                maxDec = decades[d];
+                favDecade = d + "s";
+            }
+        }
         
         return { 
             episodes: epCount, 
             time: { m: Math.floor(tm/43200), d: Math.floor((tm%43200)/1440), h: Math.floor((tm%1440)/60) }, 
-            upcoming 
+            upcoming,
+            favDecade
         };
     },
 

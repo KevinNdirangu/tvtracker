@@ -336,34 +336,10 @@
 
     <!-- STATISTICS -->
     <div id="tab-stats" class="tab-content" style="padding: 2rem; max-width:1200px; margin:auto;">
-        <h1 style="margin-top:0; font-size:2.5rem;">Your Statistics</h1>
+        <h1 style="margin-top:0; font-size:3rem; text-align:center;">Your TV Story</h1>
         
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem; margin-top:2rem;">
-            <!-- Watch Time Card -->
-            <div style="background:var(--card-bg); padding:2rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                <h3 style="margin:0 0 1rem; color:var(--text-muted);">Total Time Watched</h3>
-                <div id="stats-time-val" style="font-size:3rem; font-weight:900; color:var(--accent);">0h</div>
-            </div>
-            
-            <!-- Library Breakdown Card -->
-            <div style="background:var(--card-bg); padding:2rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                <h3 style="margin:0 0 1rem; color:var(--text-muted);">Library Breakdown</h3>
-                <div style="display:flex; justify-content:center; gap:2rem; font-size:1.5rem; font-weight:bold;">
-                    <div><span style="color:var(--accent);" id="stats-shows">0</span> <br><span style="font-size:1rem; color:#aaa;">Shows</span></div>
-                    <div><span style="color:var(--accent);" id="stats-movies">0</span> <br><span style="font-size:1rem; color:#aaa;">Movies</span></div>
-                </div>
-            </div>
-            
-            <!-- Completion Card -->
-            <div style="background:var(--card-bg); padding:2rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                <h3 style="margin:0 0 1rem; color:var(--text-muted);">Episodes Logged</h3>
-                <div id="stats-eps-val" style="font-size:3rem; font-weight:900; color:var(--accent);">0</div>
-            </div>
-        </div>
-
-        <h3 style="margin-top: 3rem; margin-bottom: 1rem;">Top Genres</h3>
-        <div id="stats-genres" style="display:flex; flex-direction:column; gap:10px; background:var(--card-bg); padding:2rem; border-radius:16px; border:1px solid #333;">
-            <div style="color:#aaa;">Loading analytics...</div>
+        <div id="stats-story-container" style="display:flex; flex-direction:column; gap:2rem; margin-top:3rem;">
+            <div style="color:#aaa; text-align:center; font-size:1.2rem;">Loading your analytics...</div>
         </div>
     </div>
 
@@ -1281,53 +1257,62 @@
             const st = await ipcRenderer.invoke('get-stats');
             if(!st) return;
             
-            let t = '';
-            if(st.time.m>0) t += `${st.time.m}mo `;
-            if(st.time.d>0) t += `${st.time.d}d `;
-            t += `${st.time.h}h`;
-            document.getElementById('stats-time-val').innerText = t || '0h';
-            document.getElementById('stats-eps-val').innerText = st.episodes;
-            
             // Re-fetch library for detailed breakdown
             const lib = await ipcRenderer.invoke('get-library');
-            let shows = 0, movies = 0;
             const genreCounts = {};
+            let startedShows = 0;
+            let completedShows = 0;
             
             lib.forEach(i => {
-                if(i.type === 'movie') movies++;
-                else shows++;
-                
+                if (i.type === 'tv' && i.progress > 0) {
+                    startedShows++;
+                    if (i.progress >= i.total_episodes && i.total_episodes > 0 && i.status === 'Ended') {
+                        completedShows++;
+                    }
+                }
                 if(i.genre) {
                     i.genre.split(',').forEach(g => {
                         const gt = g.trim();
-                        if(gt) {
-                            genreCounts[gt] = (genreCounts[gt] || 0) + 1;
-                        }
+                        if(gt) genreCounts[gt] = (genreCounts[gt] || 0) + 1;
                     });
                 }
             });
             
-            document.getElementById('stats-shows').innerText = shows;
-            document.getElementById('stats-movies').innerText = movies;
+            const completionRate = startedShows > 0 ? Math.round((completedShows / startedShows) * 100) : 0;
+            const favGenre = Object.entries(genreCounts).sort((a,b) => b[1] - a[1])[0];
+            const favGenreName = favGenre ? favGenre[0] : "Everything";
             
-            const gList = Object.entries(genreCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
-            const totalG = gList.reduce((acc, val) => acc + val[1], 0) || 1;
+            let timeStr = '';
+            if (st.time.m > 0) timeStr += `${st.time.m} months, `;
+            if (st.time.d > 0) timeStr += `${st.time.d} days, `;
+            timeStr += `${st.time.h} hours`;
+            if (timeStr === '0 hours') timeStr = 'a few minutes';
             
-            let gHtml = '';
-            gList.forEach(([gName, count]) => {
-                const pct = Math.round((count / totalG) * 100);
-                gHtml += `
-                    <div style="display:flex; flex-direction:column; gap:5px;">
-                        <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                            <span>${gName}</span>
-                            <span style="color:var(--text-muted);">${count} items</span>
-                        </div>
-                        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:var(--accent);"></div></div>
+            const storyHtml = `
+                <div style="background:var(--card-bg); padding:2.5rem; border-radius:24px; border:1px solid #333; text-align:center;">
+                    <h2 style="font-size:2.5rem; margin-top:0; color:white; line-height:1.2;">You've spent <span style="color:var(--accent);">${timeStr}</span> of your life watching TV.</h2>
+                    <p style="color:#aaa; font-size:1.2rem; margin-bottom:0;">That's a total of <strong>${st.episodes}</strong> episodes logged!</p>
+                </div>
+                
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center; display:flex; flex-direction:column; justify-content:center;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1.2rem; font-weight:normal;">Your favorite decade is the</h3>
+                        <div style="font-size:3.5rem; font-weight:900; color:var(--accent); margin:1rem 0;">${st.favDecade}</div>
                     </div>
-                `;
-            });
+                    
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center; display:flex; flex-direction:column; justify-content:center;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1.2rem; font-weight:normal;">Your go-to genre is</h3>
+                        <div style="font-size:3.5rem; font-weight:900; color:var(--accent); margin:1rem 0;">${favGenreName}</div>
+                    </div>
+                </div>
+                
+                <div style="background:var(--card-bg); padding:2.5rem; border-radius:24px; border:1px solid #333; text-align:center;">
+                    <h2 style="font-size:2.5rem; margin-top:0; color:white; line-height:1.2;">You finish <span style="color:var(--accent);">${completionRate}%</span> of the shows you start.</h2>
+                    <div class="progress-bar-bg" style="height:12px; border-radius:6px; margin: 2rem auto 0; max-width: 400px; background:#222;"><div class="progress-bar-fill" style="width:${completionRate}%; background:var(--accent); border-radius:6px;"></div></div>
+                </div>
+            `;
             
-            document.getElementById('stats-genres').innerHTML = gHtml || '<p>No genres found.</p>';
+            document.getElementById('stats-story-container').innerHTML = storyHtml;
         }
 
         // Init
