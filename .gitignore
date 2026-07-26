@@ -1,0 +1,9 @@
+node_modules/
+tracker.db
+github_sync.json
+backup/
+*.log
+diff.txt
+temp.js
+temp_style.css
+patch*.js

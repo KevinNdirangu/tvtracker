@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Time DB</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
+    <style>
+        :root { --bg-color: #000; --card-bg: #1c1c1e; --text-main: #fff; --text-muted: #8e8e93; --accent: #FFD600; --tag-movie: #ff3b30; --tag-tv: #34c759; }
+        body { background: var(--bg-color); color: var(--text-main); font-family: system-ui, sans-serif; margin: 0; padding: 0; padding-bottom: 4rem; }
+        
+        header { padding: 1.5rem 2rem; position: sticky; top: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 100; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; font-size: 1.8rem; font-weight: 800; }
+        
+        .search-box { background: var(--card-bg); border: 1px solid #333; padding: 0.5rem 1rem; border-radius: 20px; color: white; width: 250px; outline: none; }
+        .search-box:focus { border-color: var(--accent); }
+
+        .tab-container { display: flex; gap: 1.5rem; }
+        .tab-btn { background: none; border: none; color: var(--text-muted); font-size: 1rem; font-weight: 600; padding: 0.5rem 0; cursor: pointer; position: relative; }
+        .tab-btn.active { color: var(--text-main); }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: var(--accent); }
+
+        .sub-nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #333; padding-bottom: 1rem; }
+        .sub-btn { background: var(--card-bg); color: var(--text-muted); border: none; padding: 0.4rem 1rem; border-radius: 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+        .sub-btn.active { background: var(--text-main); color: black; }
+
+        .tab-content { display: none; padding: 2rem; }
+        .tab-content.active { display: block; }
+        
+        .show-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; }
+        .poster-card { position: relative; background: var(--card-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 2/3; cursor: pointer; transition: transform 0.2s; }
+        .poster-card:hover { transform: translateY(-5px); }
+        .poster-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; transition: opacity 0.2s; }
+        .poster-card:hover .poster-img { opacity: 1; }
+        
+        .tag { position: absolute; top: 8px; left: 8px; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .tag-movie { background: var(--tag-movie); color: white; } .tag-tv { background: var(--tag-tv); color: white; }
+        
+        .card-info { position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); padding: 2rem 1rem 1rem; box-sizing: border-box; }
+        .show-title { margin: 0 0 0.2rem; font-size: 1rem; font-weight: 700; }
+        .progress-bar-bg { width: 100%; background: rgba(255,255,255,0.2); height: 4px; margin-top: 5px; }
+        .progress-bar-fill { background: var(--accent); height: 100%; }
+        
+        .btn-add { position: absolute; top: 8px; right: 8px; background: var(--accent); color: black; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 1.2rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 10;}
+        
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: flex-end; }
+        .modal-content { background: var(--card-bg); width: 100%; max-width: 900px; height: 85vh; border-radius: 20px 20px 0 0; padding: 2rem; overflow-y: auto; position: relative; animation: slideUp 0.2s; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .modal-close { position: absolute; top: 1rem; right: 1.5rem; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+        
+        .season-header { display: flex; justify-content: space-between; align-items: center; background: #2c2c2e; padding: 0.75rem 1rem; margin-top: 1.5rem; border-radius: 8px; }
+        .ep-row { display: flex; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid #333; }
+        .ep-watched { opacity: 0.5; text-decoration: line-through; }
+        
+        .btn-action { background: var(--accent); color: black; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; cursor: pointer; }
+        .btn-delete { background: #ff3b30; color: white; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; cursor: pointer; }
+        
+        .stat-card { background: #111; padding: 1.5rem; border-radius: 12px; text-align: center; border: 1px solid #333; }
+        
+        .season-header { display: flex; justify-content: space-between; align-items: center; background: #2c2c2e; padding: 0.75rem 1rem; margin-top: 1rem; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+        .season-header:hover { background: #3a3a3c; }
+        .ep-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0.5rem; border-bottom: 1px solid #333; cursor: pointer; transition: background 0.2s; border-radius: 6px; }
+        .ep-row:hover { background: #222; }
+        .ep-watched { opacity: 0.4; text-decoration: line-through; }
+        
+        .custom-checkbox { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .ep-watched .custom-checkbox { background: var(--accent); }
+        .ep-watched .custom-checkbox::after { content: '✓'; color: black; font-weight: bold; font-size: 14px; }
+        
+        .season-content { padding: 0 1rem; display: none; }
+        .season-content.open { display: block; }
+<<<<<<< HEAD
+        @media (max-width: 768px) {
+            header { padding: 1rem; flex-direction: column; gap: 1rem; align-items: stretch; border-bottom: none; }
+            h1 { font-size: 1.5rem; text-align: center; margin-bottom: 0; }
+            .search-box { width: 100%; box-sizing: border-box; }
+            
+            .tab-container { 
+                position: fixed; bottom: 0; left: 0; width: 100%; 
+                background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); 
+                border-top: 1px solid #333; z-index: 200; 
+                display: flex; justify-content: space-around; gap: 0; padding: 0.5rem 0; 
+                padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+            }
+            .tab-btn { flex: 1; padding: 0.5rem; font-size: 0.85rem; }
+            .tab-btn.active::after { top: -0.5rem; bottom: auto; height: 3px; }
+            
+            body { padding-bottom: 5rem; }
+            
+            .show-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.75rem; }
+            .card-info { padding: 1rem 0.5rem 0.5rem; }
+            .show-title { font-size: 0.85rem; }
+            
+            #tab-dashboard > div:first-of-type { grid-template-columns: 1fr !important; gap: 0.5rem !important; }
+            h3 + div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+            
+            .modal-content { padding: 1rem; padding-top: 2rem; height: 95vh; }
+            .modal-close { top: 0.5rem; right: 0.5rem; z-index: 10; font-size: 2rem; background: rgba(0,0,0,0.5); width: 40px; height: 40px; border-radius: 50%; }
+            #m-poster { width: 110px !important; margin: 0 auto; display: block; }
+            .modal-content > div:nth-child(2) { flex-direction: column !important; gap: 1rem !important; align-items: center; text-align: center; margin-bottom: 1rem !important; }
+            #m-title { font-size: 1.4rem !important; }
+            #m-actions { flex-direction: column; width: 100%; }
+            .btn-action, .btn-delete { width: 100%; box-sizing: border-box; }
+            
+            #gcal-actions { flex-direction: column; }
+        }
+=======
+>>>>>>> 9451fcb44d4010ddc319b3bc56d089f02d1267ae
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>TV Time</h1>
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="nav('dashboard', this)">Dashboard</button>
+            <button class="tab-btn" onclick="nav('discover', this)">Discover</button>
+            <button class="tab-btn" onclick="nav('tracking', this)">My Library</button>
+            <button class="tab-btn" onclick="nav('calendar', this)">Calendar</button>
+            <button class="tab-btn" onclick="nav('settings', this)">Settings</button>
+        </div>
+        <input type="text" class="search-box" id="searchInput" placeholder="Search movies or shows..." onkeyup="if(event.key === 'Enter') executeSearch()">
+    </header>
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+            <div class="stat-card">
+                <div style="font-size: 2.5rem; color: var(--accent); font-weight: 900;" id="st-time">0h</div>
+                <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Time Watched</div>
+            </div>
+            <div class="stat-card">
+                <div style="font-size: 2.5rem; color: var(--accent); font-weight: 900;" id="st-eps">0</div>
+                <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Episodes Logged</div>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">Incoming Tracker</h3>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-action" onclick="exportCalendar()" style="display:flex; align-items:center; gap:8px; background:#333; color:white;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export .ics
+                </button>
+                <button class="btn-action" onclick="syncGcal()" style="display:flex; align-items:center; gap:8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Sync API
+                </button>
+            </div>
+        </div>
+        <div id="dash-incoming" class="show-grid"></div>
+    </div>
+
+    <!-- DISCOVER / SEARCH -->
+    <div id="tab-discover" class="tab-content">
+        <h2 id="discover-title">Trending This Week</h2>
+        <div class="show-grid" id="grid-discover"></div>
+    </div>
+
+    <!-- MY LIBRARY (TRACKING) -->
+    <div id="tab-tracking" class="tab-content">
+        
+        <!-- Top Level Filter -->
+        <div class="sub-nav" style="align-items: center;">
+            <button class="sub-btn active" onclick="setLibType('all', this)">All</button>
+            <button class="sub-btn" onclick="setLibType('tv', this)">TV Shows</button>
+            <button class="sub-btn" onclick="setLibType('movie', this)">Movies</button>
+            <div style="flex-grow: 1;"></div>
+            <select id="sortSelect" onchange="renderLibraryGrid()" style="background:var(--card-bg); color:white; border:1px solid #333; border-radius:8px; padding:0.4rem; margin-right:10px; outline:none;">
+                <option value="lastWatchedDesc">Last Watched</option>
+                <option value="titleAsc">Title (A-Z)</option>
+                <option value="addedDesc">Recently Added</option>
+                <option value="ratingDesc">Highest Rated</option>
+                <option value="episodesDesc">Most Watched</option>
+                <option value="notWatchedAsc">Not Watched First</option>
+            </select>
+            <select id="genreSelect" onchange="renderLibraryGrid()" style="background:var(--card-bg); color:white; border:1px solid #333; border-radius:8px; padding:0.4rem; margin-right:10px; outline:none;">
+                <option value="all">All Genres</option>
+            </select>
+            <input type="text" class="search-box" id="libSearchInput" placeholder="Search library..." oninput="renderLibraryGrid()">
+        </div>
+        
+        <!-- Second Level Filter -->
+        <div class="sub-nav" id="filter-tv" style="display:none; border:none; padding:0;">
+            <button class="sub-btn active" onclick="setLibState('watching', this)">Watching</button>
+            <button class="sub-btn" onclick="setLibState('uptodate', this)">Up to Date</button>
+            <button class="sub-btn" onclick="setLibState('finished', this)">Finished</button>
+            <button class="sub-btn" onclick="setLibState('stopped', this)">Stopped</button>
+        </div>
+        <div class="sub-nav" id="filter-movie" style="display:none; border:none; padding:0;">
+            <button class="sub-btn active" onclick="setLibState('watchlist', this)">Watchlist (Not Seen)</button>
+            <button class="sub-btn" onclick="setLibState('seen', this)">Seen</button>
+        </div>
+
+        <div class="show-grid" id="grid-library"></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div id="tab-calendar" class="tab-content">
+        <h2 style="margin-top: 0;">Upcoming Schedule</h2>
+        <div id="grid-calendar"></div>
+    </div>
+
+    <!-- SETTINGS / DATA MANAGEMENT -->
+    <div id="tab-settings" class="tab-content">
+        <h2 style="margin-top: 0;">Settings & Integrations</h2>
+        
+        <h3 style="margin-top: 2rem;">Appearance</h3>
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; gap: 1rem; align-items: center;">
+            <div style="font-weight:bold;">Accent Color:</div>
+            <button style="width:30px;height:30px;border-radius:50%;border:none;background:#FFD600;cursor:pointer;" onclick="setTheme('#FFD600')"></button>
+            <button style="width:30px;height:30px;border-radius:50%;border:none;background:#ff3b30;cursor:pointer;" onclick="setTheme('#ff3b30')"></button>
+            <button style="width:30px;height:30px;border-radius:50%;border:none;background:#34c759;cursor:pointer;" onclick="setTheme('#34c759')"></button>
+            <button style="width:30px;height:30px;border-radius:50%;border:none;background:#0a84ff;cursor:pointer;" onclick="setTheme('#0a84ff')"></button>
+            <button style="width:30px;height:30px;border-radius:50%;border:none;background:#af52de;cursor:pointer;" onclick="setTheme('#af52de')"></button>
+        </div>
+        
+        <h3 style="margin-top: 2rem;">Global Timezone Shift</h3>
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; margin-bottom: 2rem;">
+            <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Automatically adds +1 day to air dates of shows originating in the Americas (e.g. US) to match local African/European timezones.</p>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="autoTimezoneToggle" onchange="toggleAutoTimezone(this.checked)" style="width:20px; height:20px;">
+                <span>Enable Auto-Timezone Shift for newly added shows</span>
+            </label>
+            <button class="btn-action" style="margin-top:15px; width:100%; padding:12px;" id="btn-sync-tz" onclick="syncLibraryTimezones()">Run Timezone Fix on Existing Library</button>
+            <p id="sync-tz-status" style="color:var(--accent); margin-top:10px; text-align:center; font-weight:bold;"></p>
+        </div>
+
+        <h3 style="margin-top: 2rem;">Data Management</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <!-- CSV Import -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h4 style="margin: 0 0 0.5rem 0;">Import CSV History</h4>
+                    <div style="color: var(--text-muted); font-size: 0.85rem;">Supports TV Time exports (TVDB) and Letterboxd/TMDB logs.</div>
+                    <div id="import-status" style="color: var(--accent); font-size: 0.85rem; margin-top: 0.5rem; font-weight: bold;"></div>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <input type="file" id="csv-upload" accept=".csv" style="display: none;" onchange="handleFileImport(event)">
+                    <button class="btn-action" style="background: #333; color: white; width:100%;" onclick="document.getElementById('csv-upload').click()">Upload .CSV File</button>
+                </div>
+            </div>
+
+            <!-- Google Calendar -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h4 style="margin: 0 0 0.5rem 0; display:flex; align-items:center; gap:8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        Google Calendar Auto-Sync (API)
+                    </h4>
+                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom:0.5rem;">Requires GCP Project. Syncs with Kenyan Timezone (Africa/Nairobi).</div>
+                    <div id="gcal-status" style="color: var(--accent); font-size: 0.85rem; font-weight: bold;"></div>
+                    <input type="text" id="gcal-code" placeholder="Paste Auth Code Here..." style="display:none; width:100%; padding:8px; margin-top:5px; box-sizing:border-box; background:#111; border:1px solid #333; color:white; border-radius:4px;">
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;" id="gcal-actions">
+                    <input type="file" id="gcal-creds" accept=".json" style="display: none;" onchange="handleGcalCreds(event)">
+                    <button class="btn-action" style="background: #333; color: white; flex-grow:1;" onclick="document.getElementById('gcal-creds').click()" id="btn-creds">Upload Credentials</button>
+                    <button class="btn-action" style="flex-grow:1;" onclick="syncGcal()" id="btn-sync">Sync API</button>
+                </div>
+            </div>
+
+            <!-- GitHub Gist Calendar Subscription -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; grid-column: 1 / -1;">
+                <div>
+                    <h4 style="margin: 0 0 0.5rem 0; display:flex; align-items:center; gap:8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                        GitHub Gist Subscription (Recommended)
+                    </h4>
+                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom:0.5rem;">Creates a permanently auto-updating ICS subscription URL for Google Calendar. Enter a GitHub Personal Access Token (with 'gist' scope).</div>
+                    <div id="gist-status" style="color: var(--accent); font-size: 0.85rem; font-weight: bold; margin-bottom: 0.5rem;"></div>
+                    <input type="text" id="gist-token" placeholder="ghp_xxxxxxxxxxxx" style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; background:#111; border:1px solid #333; color:white; border-radius:4px;">
+                    <textarea id="gist-url" readonly placeholder="Your subscription URL will appear here..." style="width:100%; padding:8px; box-sizing:border-box; background:#000; border:1px dashed #34c759; color:#34c759; border-radius:4px; resize:none; font-family:monospace; display:none;"></textarea>
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                    <button class="btn-action" style="flex-grow:1; background: #333; color: white;" onclick="setupGist()">1. Initialize / Setup</button>
+                    <button class="btn-action" style="flex-grow:1;" onclick="syncGist()">2. Sync Update Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UNIVERSAL MODAL -->
+    <div id="modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal(event)">✕</button>
+            <div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
+                <img id="m-poster" style="width: 150px; border-radius: 8px;">
+                <div>
+                    <h1 id="m-title" style="margin: 0 0 0.5rem; font-size: 2rem;">Loading...</h1>
+                    <div id="m-meta" style="color: var(--accent); margin-bottom: 1rem; font-weight: bold;"></div>
+                    <p id="m-overview" style="color: #ccc; line-height: 1.5; margin-bottom: 1rem;"></p>
+                    <div id="m-extra-meta" style="margin-bottom: 1rem; display:none;">
+                        <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                            <label>Rating:</label>
+                            <input type="number" id="m-rating" min="0" max="10" style="width:50px; background:#111; color:white; border:1px solid #333; padding:4px; border-radius:4px; outline:none;"> <span>/ 10</span>
+                            <label style="margin-left:20px;">Tags:</label>
+                            <input type="text" id="m-tags" placeholder="anime, favs" style="flex-grow:1; background:#111; color:white; border:1px solid #333; padding:4px; border-radius:4px; outline:none;">
+                        </div>
+                        <textarea id="m-notes" placeholder="Personal notes or reviews..." style="width:100%; height:60px; background:#111; color:white; border:1px solid #333; padding:8px; box-sizing:border-box; margin-bottom:10px; resize:none; border-radius:8px; outline:none; font-family:inherit;"></textarea>
+                        <button class="btn-action" style="padding:6px 12px; font-size:0.8rem; background:#333; color:white;" onclick="saveShowMeta()">Save Notes & Rating</button>
+                        <span id="m-meta-saved" style="color:#34c759; font-size:0.85rem; display:none; margin-left:10px; font-weight:bold;">Saved!</span>
+                    </div>
+                    <div id="m-actions" style="display: flex; gap: 1rem;"></div>
+                </div>
+            </div>
+            <div id="m-body"></div>
+        </div>
+    </div>
+
+    <script>
+        let localApiIds = [];
+        let libraryData = [];
+        let currentOpenShowId = null;
+        let currentOpenTmdbId = null;
+        let currentOpenType = null;
+        
+        // Library State
+        let curLibType = 'all';
+        let curLibState = 'all'; // watching, uptodate, finished, stopped, watchlist, seen
+
+        const getImg = path => path ? `https://image.tmdb.org/t/p/w500${path}` : 'https://via.placeholder.com/200x300/1a1a1a/fff?text=No+Poster';
+
+        function nav(tab, el) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            el.classList.add('active');
+            if(tab === 'dashboard') loadDash();
+            if(tab === 'discover') loadDiscover();
+            if(tab === 'tracking') loadLibrary();
+            if(tab === 'calendar') loadCalendar();
+            if(tab === 'settings') loadSettings();
+        }
+
+        async function setTheme(color) {
+            document.documentElement.style.setProperty('--accent', color);
+            localStorage.setItem('tvtime_theme', color);
+        }
+        
+        const savedTheme = localStorage.getItem('tvtime_theme');
+        if(savedTheme) setTheme(savedTheme);
+
+        // --- SETTINGS PAGE ---
+        async function loadSettings() {
+            const tz = await ipcRenderer.invoke('get-setting', 'autoTimezoneShift');
+            document.getElementById('autoTimezoneToggle').checked = tz === '1';
+        }
+        
+        async function toggleAutoTimezone(isChecked) {
+            await ipcRenderer.invoke('set-setting', 'autoTimezoneShift', isChecked ? '1' : '0');
+        }
+        
+        async function syncLibraryTimezones() {
+            const btn = document.getElementById('btn-sync-tz');
+            const status = document.getElementById('sync-tz-status');
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+            status.innerText = "Please wait, fetching metadata for your library...";
+            
+            const res = await ipcRenderer.invoke('sync-library-timezones');
+            btn.disabled = false;
+            btn.innerText = "Run Timezone Fix on Existing Library";
+            
+            if(res.success) {
+                status.innerText = `Success! Shifted ${res.count} US/Americas shows by +1 day.`;
+                loadLibrary();
+                loadDash();
+                if(document.getElementById('tab-calendar').classList.contains('active')) loadCalendar();
+            } else {
+                status.innerText = "Failed to sync timezones.";
+            }
+        }
+
+        async function loadCalendar() {
+            const upcoming = await ipcRenderer.invoke('get-calendar');
+            const c = document.getElementById('grid-calendar');
+            c.innerHTML = '';
+            
+            if(upcoming.length === 0) {
+                c.innerHTML = "<p>No upcoming media scheduled.</p>";
+                return;
+            }
+
+            let lastDate = '';
+            let htmlStr = '';
+            upcoming.forEach(ep => {
+                if(ep.air_date !== lastDate) {
+                    if(htmlStr !== '') htmlStr += '</div>';
+                    htmlStr += `<h3 style="margin-top:2rem; margin-bottom:1rem; border-bottom:1px solid #333; padding-bottom:0.5rem; color:var(--accent);">${new Date(ep.air_date).toLocaleDateString('en-US', {weekday: 'long', month: 'short', day: 'numeric'})}</h3><div class="show-grid">`;
+                    lastDate = ep.air_date;
+                }
+                const diff = Math.ceil((new Date(ep.air_date) - new Date()) / 86400000);
+                const diffText = diff <= 0 ? 'TODAY' : diff + ' DAYS';
+                const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
+                const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
+                
+                htmlStr += `
+                    <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
+                        <img src="${ep.poster_url}" class="poster-img">
+                        <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diffText}</div>
+                        <div class="card-info">
+                            <h2 class="show-title" style="font-size:0.9rem;">${titleText}</h2>
+                            <div style="font-size:0.75rem; color:#aaa; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${subtitle}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            if(htmlStr !== '') htmlStr += '</div>';
+            c.innerHTML = htmlStr;
+        }
+
+        async function executeSearch(page = 1, append = false) {
+            const q = document.getElementById('searchInput').value;
+            if(!q) return;
+            
+            if(!append) {
+                nav('discover');
+                document.getElementById('discover-title').innerText = `Search Results: "${q}"`;
+            }
+            
+            currentDiscoverPage = page;
+            isDiscoverSearch = true;
+            
+            const res = await ipcRenderer.invoke('search-tmdb', q, page);
+            renderDiscoverGrid(res, append);
+        }
+
+        async function loadDiscover(page = 1, append = false) {
+            if(document.getElementById('searchInput').value && !append) return; // Keep search active if typed
+            
+            if(!append) document.getElementById('discover-title').innerText = "Trending This Week";
+            
+            currentDiscoverPage = page;
+            isDiscoverSearch = false;
+            
+            const res = await ipcRenderer.invoke('get-trending', 'all', page);
+            renderDiscoverGrid(res, append);
+        }
+        
+        function loadMoreDiscover() {
+            if(isDiscoverSearch) executeSearch(currentDiscoverPage + 1, true);
+            else loadDiscover(currentDiscoverPage + 1, true);
+        }
+
+        async function renderDiscoverGrid(items, append = false) {
+            localApiIds = await ipcRenderer.invoke('get-local-ids');
+            const c = document.getElementById('grid-discover');
+            
+            const oldBtn = document.getElementById('btn-load-more');
+            if (oldBtn) oldBtn.remove();
+            
+            if(!append) c.innerHTML = '';
+            
+            items.forEach(i => {
+                if(localApiIds.includes(i.id)) return;
+                
+                const type = i.media_type || (i.title ? 'movie' : 'tv');
+                const title = i.title || i.name;
+                
+                const card = document.createElement('div');
+                card.className = 'poster-card';
+                card.setAttribute('data-id', i.id);
+                card.onclick = () => openModal(i.id, type, false);
+                
+                card.innerHTML = `
+                    <img src="${getImg(i.poster_path)}" class="poster-img">
+                    <div class="tag ${type==='movie'?'tag-movie':'tag-tv'}">${type}</div>
+                    <button class="btn-add" onclick="event.stopPropagation(); ${type === 'movie' ? `openModal(${i.id}, 'movie', false)` : `quickAdd(${i.id}, 'tv', false)`} ">+</button>
+                    <div class="card-info"><h2 class="show-title">${title}</h2></div>
+                `;
+                c.appendChild(card);
+            });
+            
+            if (items.length > 0) {
+                const btnContainer = document.createElement('div');
+                btnContainer.id = 'btn-load-more';
+                btnContainer.style = 'grid-column: 1 / -1; display:flex; justify-content:center; margin-top: 2rem; margin-bottom: 2rem;';
+                btnContainer.innerHTML = `<button onclick="loadMoreDiscover()" style="background:transparent; border: 2px solid var(--accent); color:var(--accent); padding:12px 40px; border-radius:30px; font-weight:bold; font-size:1.1rem; cursor:pointer; transition:all 0.3s;" onmouseover="this.style.background='var(--accent)'; this.style.color='black'" onmouseout="this.style.background='transparent'; this.style.color='var(--accent)'">Load More Discoveries</button>`;
+                c.appendChild(btnContainer);
+            }
+        }
+
+        async function quickAdd(id, type, markSeen = false) {
+            if(type === 'movie') {
+                await ipcRenderer.invoke('add-media', id, 'movie', markSeen);
+            } else {
+                await ipcRenderer.invoke('add-media', id, 'tv', false);
+            }
+            
+            localApiIds.push(id);
+            if(document.getElementById('tab-discover').classList.contains('active')) {
+                const card = document.querySelector(`.poster-card[data-id="${id}"]`);
+                if(card) {
+                    const btn = card.querySelector('.btn-add');
+                    if(btn) {
+                        btn.innerText = '✓';
+                        btn.style.background = 'var(--accent)';
+                        btn.style.color = 'black';
+                        btn.onclick = (e) => { e.stopPropagation(); }; // Prevent re-adding
+                    }
+                }
+            }
+            if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
+        }
+
+        // --- LIBRARY LOGIC ---
+        function setLibType(t, el) {
+            curLibType = t;
+            document.querySelectorAll('#tab-tracking > .sub-nav > .sub-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            
+            document.getElementById('filter-tv').style.display = t === 'tv' ? 'flex' : 'none';
+            document.getElementById('filter-movie').style.display = t === 'movie' ? 'flex' : 'none';
+            
+            if(t === 'tv') curLibState = 'watching';
+            else if(t === 'movie') curLibState = 'watchlist';
+            else curLibState = 'all';
+            
+            // Reset active states on sub-nav
+            if(t !== 'all') {
+                document.querySelectorAll(`#filter-${t} .sub-btn`).forEach(b => b.classList.remove('active'));
+                document.querySelector(`#filter-${t} .sub-btn`).classList.add('active');
+            }
+            
+            renderLibraryGrid();
+        }
+
+        function setLibState(s, el) {
+            curLibState = s;
+            document.querySelectorAll(`#filter-${curLibType} .sub-btn`).forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            renderLibraryGrid();
+        }
+
+        async function loadLibrary() {
+            libraryData = await ipcRenderer.invoke('get-library');
+            
+            const gSelect = document.getElementById('genreSelect');
+            if(gSelect) {
+                let genres = new Set();
+                libraryData.forEach(i => {
+                    if(i.genre) i.genre.split(',').forEach(g => genres.add(g.trim()));
+                });
+                let html = '<option value="all">All Genres</option>';
+                Array.from(genres).sort().forEach(g => {
+                    if(g) html += `<option value="${g}">${g}</option>`;
+                });
+                gSelect.innerHTML = html;
+            }
+            
+            renderLibraryGrid();
+        }
+
+        function renderLibraryGrid() {
+            const c = document.getElementById('grid-library');
+            c.innerHTML = '';
+            
+            const q = document.getElementById('libSearchInput') ? document.getElementById('libSearchInput').value.toLowerCase() : '';
+            const g = document.getElementById('genreSelect') ? document.getElementById('genreSelect').value : 'all';
+            const s = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'lastWatchedDesc';
+            
+            // Filter Data
+            let filtered = libraryData.filter(i => {
+                if(q && !i.title.toLowerCase().includes(q)) return false;
+                if(g !== 'all' && (!i.genre || !i.genre.includes(g))) return false;
+
+                if(curLibType === 'all') return true;
+                if(i.type !== curLibType) return false;
+                
+                if(curLibType === 'movie') {
+                    if(curLibState === 'seen') return i.watchedEpisodes > 0;
+                    if(curLibState === 'watchlist') return i.watchedEpisodes === 0;
+                } else {
+                    if(curLibState === 'stopped') return i.is_stopped === 1;
+                    if(i.is_stopped === 1) return false; // Hide stopped from active views
+                    
+                    if(curLibState === 'finished') return i.totalEpisodes > 0 && i.watchedEpisodes === i.totalEpisodes && (i.status === 'Ended' || i.status === 'Canceled');
+                    if(curLibState === 'uptodate') return i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled';
+                    if(curLibState === 'watching') return i.watchedEpisodes < i.airedEpisodes;
+                }
+                return false;
+            });
+
+            filtered.sort((a,b) => {
+                if(s === 'titleAsc') return a.title.localeCompare(b.title);
+                if(s === 'addedDesc') return b.id - a.id;
+                if(s === 'ratingDesc') return (b.user_rating || 0) - (a.user_rating || 0);
+                if(s === 'episodesDesc') return (b.watchedEpisodes || 0) - (a.watchedEpisodes || 0);
+                if(s === 'notWatchedAsc') {
+                    if (a.watchedEpisodes === b.watchedEpisodes) return a.title.localeCompare(b.title);
+                    return a.watchedEpisodes - b.watchedEpisodes;
+                }
+                if(s === 'lastWatchedDesc') {
+                    const timeA = a.lastWatched ? new Date(a.lastWatched).getTime() : 0;
+                    const timeB = b.lastWatched ? new Date(b.lastWatched).getTime() : 0;
+                    return timeB - timeA;
+                }
+                return 0;
+            });
+
+            if(filtered.length === 0) {
+                c.innerHTML = "<p>No media found in this category.</p>";
+                return;
+            }
+
+            let htmlStr = '';
+            filtered.forEach(i => {
+                const pct = i.totalEpisodes > 0 ? (i.watchedEpisodes / i.totalEpisodes) * 100 : 0;
+                
+                let statusColor = '#8e8e93'; // grey
+                let statusText = 'Not Started';
+                if(i.type === 'movie') {
+                    if(i.watchedEpisodes > 0) { statusColor = '#34c759'; statusText = 'Seen'; }
+                    else { statusColor = '#ff9f0a'; statusText = 'Watchlist'; }
+                } else {
+                    if(i.is_stopped === 1) { statusColor = '#ff3b30'; statusText = 'Stopped'; }
+                    else if(i.totalEpisodes > 0 && i.watchedEpisodes === i.totalEpisodes && (i.status === 'Ended' || i.status === 'Canceled')) { statusColor = '#34c759'; statusText = 'Finished'; }
+                    else if(i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled') { statusColor = '#0a84ff'; statusText = 'Up to Date'; }
+                    else if(i.watchedEpisodes > 0) { statusColor = '#FFD600'; statusText = 'Watching'; }
+                }
+
+                htmlStr += `
+                    <div class="poster-card" onclick="openModal(${i.api_id}, '${i.type}', true, ${i.id})" style="box-shadow: inset 0 0 0 3px ${statusColor}cc;">
+                        <img src="${i.posterUrl}" class="poster-img">
+                        <div class="tag" style="top:8px; right:8px; background:${statusColor}; color:black; font-weight:900;">${statusText}</div>
+                        <div class="card-info">
+                            <h2 class="show-title">${i.title}</h2>
+                            ${i.type === 'tv' ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.totalEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            c.innerHTML = htmlStr;
+        }
+
+        // --- DATA IMPORT LOGIC ---
+        
+        async function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // In Electron, the file object contains the exact physical path on your hard drive
+            const filePath = file.path; 
+            
+            const statusEl = document.getElementById('import-status');
+            statusEl.innerText = "Analyzing file and beginning import... This may take a few minutes.";
+            
+            // Disable interactions while importing to prevent database locks
+            document.querySelector('#csv-upload').disabled = true;
+
+            const result = await ipcRenderer.invoke('import-csv', filePath);
+            
+            if (result.success) {
+                statusEl.style.color = '#34c759'; // Success Green
+                statusEl.innerText = result.msg;
+                // Refresh the whole UI to show the new data!
+                loadDash();
+                loadLibrary();
+            } else {
+                statusEl.style.color = '#ff3b30'; // Error Red
+                statusEl.innerText = result.msg;
+            }
+
+            // Reset the input so you can upload again if needed
+            document.getElementById('csv-upload').value = "";
+            document.querySelector('#csv-upload').disabled = false;
+        }
+
+        async function handleGcalCreds(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const res = await ipcRenderer.invoke('gcal-auth', file.path);
+            if(res.success) {
+                require('electron').shell.openExternal(res.url);
+                document.getElementById('gcal-code').style.display = 'block';
+                const btn = document.getElementById('btn-creds');
+                btn.innerText = "2. Submit Code";
+                btn.onclick = async () => {
+                    const code = document.getElementById('gcal-code').value;
+                    if(!code) return alert("Paste the code first!");
+                    const r2 = await ipcRenderer.invoke('gcal-token', code);
+                    if(r2.success) {
+                        document.getElementById('gcal-status').style.color = '#34c759';
+                        document.getElementById('gcal-status').innerText = "Authenticated! Ready to sync.";
+                        document.getElementById('gcal-code').style.display = 'none';
+                        btn.innerText = "Re-Authenticate";
+                        btn.onclick = () => document.getElementById('gcal-creds').click();
+                    } else {
+                        alert(r2.msg);
+                    }
+                };
+            } else {
+                alert(res.msg);
+            }
+            event.target.value = '';
+        }
+
+        async function syncGcal() {
+            const st = document.getElementById('gcal-status');
+            if(st) { st.style.color = 'var(--accent)'; st.innerText = "Syncing events, please wait..."; }
+            
+            const btn = document.getElementById('btn-sync');
+            let prevText = "Sync Now";
+            if(btn) { prevText = btn.innerText; btn.innerText = "Syncing..."; btn.disabled = true; }
+            
+            const res = await ipcRenderer.invoke('gcal-sync');
+            if(res.success) {
+                if(st) { st.style.color = '#34c759'; st.innerText = res.msg; }
+                alert(res.msg);
+            } else {
+                if(st) { st.style.color = '#ff3b30'; st.innerText = res.msg; }
+                alert(res.msg);
+            }
+            if(btn) { btn.innerText = prevText; btn.disabled = false; }
+        }
+
+        async function exportCalendar() {
+            const btn = document.querySelector('button[onclick="exportCalendar()"]');
+            if(btn) { btn.innerText = "Exporting..."; btn.disabled = true; }
+            const result = await ipcRenderer.invoke('export-calendar');
+            alert(result.msg);
+            if(btn) { 
+                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export .ics`; 
+                btn.disabled = false; 
+            }
+        }
+        async function setupGist() {
+            const token = document.getElementById('gist-token').value.trim();
+            if(!token) return alert("Please enter a GitHub Personal Access Token.");
+            
+            const st = document.getElementById('gist-status');
+            st.style.color = 'var(--accent)';
+            st.innerText = "Creating secure Gist...";
+            
+            const res = await ipcRenderer.invoke('gist-setup', token);
+            if(res.success) {
+                st.style.color = '#34c759';
+                st.innerText = "Success! Add this URL to Google Calendar 'From URL':";
+                document.getElementById('gist-url').style.display = 'block';
+                document.getElementById('gist-url').value = res.url;
+            } else {
+                st.style.color = '#ff3b30';
+                st.innerText = res.msg;
+                alert("Error: " + res.msg);
+            }
+        }
+
+        async function syncGist() {
+            const st = document.getElementById('gist-status');
+            st.style.color = 'var(--accent)';
+            st.innerText = "Syncing update to GitHub...";
+            
+            const res = await ipcRenderer.invoke('gist-sync');
+            if(res.success) {
+                st.style.color = '#34c759';
+                st.innerText = "Gist successfully synced!";
+            } else {
+                st.style.color = '#ff3b30';
+                st.innerText = res.msg;
+                alert(res.msg);
+            }
+        }
+		
+        // --- UNIVERSAL MODAL ---
+        async function openModal(tmdbId, type, isLocal, localDbId = null) {
+            document.getElementById('modal').style.display = 'flex';
+            document.getElementById('m-title').innerText = "Loading...";
+            document.getElementById('m-body').innerHTML = "";
+            document.getElementById('m-actions').innerHTML = "";
+
+            if(!isLocal) {
+                // Not in library - show preview and add button
+                document.getElementById('m-extra-meta').style.display = 'none';
+                currentOpenShowId = null;
+                const data = await ipcRenderer.invoke('get-tmdb-details', tmdbId, type);
+                document.getElementById('m-title').innerText = data.title || data.name;
+                document.getElementById('m-poster').src = getImg(data.poster_path);
+                document.getElementById('m-meta').innerText = type.toUpperCase();
+                document.getElementById('m-overview').innerText = data.overview;
+                
+                if (type === 'movie') {
+                    document.getElementById('m-actions').innerHTML = `
+                        <button class="btn-action" style="background:#ff9f0a;" onclick="quickAdd(${tmdbId}, 'movie', false); closeModal();">Add to Watchlist</button>
+                        <button class="btn-action" style="background:#34c759;" onclick="quickAdd(${tmdbId}, 'movie', true); closeModal();">Mark as Seen</button>
+                    `;
+                } else {
+                    document.getElementById('m-actions').innerHTML = `<button class="btn-action" onclick="quickAdd(${tmdbId}, 'tv', false); closeModal();">Add to Library</button>`;
+                }
+            } else {
+                // It's local! Fetch rich details from our SQLite DB
+                // If we don't have localDbId (clicked from discover), find it
+                if(!localDbId) {
+                    const lib = await ipcRenderer.invoke('get-library');
+                    const match = lib.find(x => x.api_id === tmdbId);
+                    if(match) localDbId = match.id;
+                }
+                
+                const data = await ipcRenderer.invoke('get-show-details', localDbId);
+                const s = data.show;
+                
+                document.getElementById('m-extra-meta').style.display = 'block';
+                currentOpenShowId = s.id;
+                currentOpenTmdbId = tmdbId;
+                currentOpenType = type;
+                document.getElementById('m-rating').value = s.user_rating || 0;
+                document.getElementById('m-notes').value = s.user_notes || '';
+                document.getElementById('m-tags').value = s.custom_tags || '';
+                
+                document.getElementById('m-title').innerText = s.title;
+                document.getElementById('m-poster').src = s.poster_url;
+                document.getElementById('m-meta').innerText = s.genre;
+                document.getElementById('m-overview').innerText = s.overview;
+                
+                // Header Actions
+                let actions = `<button class="btn-delete" onclick="if(confirm('Remove completely?')) { ipcRenderer.invoke('remove-show', ${s.id}).then(()=> { closeModal(); loadLibrary(); loadDash(); }) }">Delete</button>`;
+                if(s.type === 'tv') {
+                    actions += s.is_stopped ? 
+                        `<button class="btn-action" style="background:#34c759;" onclick="ipcRenderer.invoke('set-stopped', ${s.id}, 0).then(()=> { closeModal(); loadLibrary(); })">Restore Show</button>` : 
+                        `<button class="btn-action" style="background:#ff9f0a;" onclick="ipcRenderer.invoke('set-stopped', ${s.id}, 1).then(()=> { closeModal(); loadLibrary(); })">Stop Watching</button>`;
+                    
+                    const tzText = s.timezone_offset === 1 ? "Revert Timezone Shift" : "Apply +1 Day (Local Time)";
+                    const tzBg = s.timezone_offset === 1 ? "var(--accent)" : "#444";
+                    const tzColor = s.timezone_offset === 1 ? "black" : "white";
+                    actions += `<button class="btn-action" style="background:${tzBg}; color:${tzColor};" onclick="toggleTimezoneShift()" title="Shifts all episode air dates by +1 day for your timezone">${tzText}</button>`;
+                }
+                document.getElementById('m-actions').innerHTML = actions;
+
+                // Body: Episodes or Movie actions
+                const body = document.getElementById('m-body');
+                body.innerHTML = '';
+                
+                ipcRenderer.invoke('get-tmdb-extra', tmdbId, type).then(extra => {
+                    if(!extra) return;
+                    let extraHtml = '<div style="margin-top:2rem; padding-top:2rem; border-top:1px solid #333;">';
+                    
+                    if(extra.videos && extra.videos.results) {
+                        const tr = extra.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                        if(tr) extraHtml += `<button class="btn-action" style="background:#ff3b30; color:white; margin-bottom:1rem;" onclick="require('electron').shell.openExternal('https://youtube.com/watch?v=${tr.key}')">▶ Watch Trailer</button>`;
+                    }
+                    
+                    if(extra.credits && extra.credits.cast && extra.credits.cast.length > 0) {
+                        extraHtml += `<h3>Top Cast</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
+                        extra.credits.cast.slice(0, 8).forEach(actor => {
+                            const img = actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                            extraHtml += `<div style="text-align:center; width:100px; flex-shrink:0;"><img src="${img}" style="width:100px; height:150px; object-fit:cover; border-radius:8px;"><div style="font-size:0.75rem; margin-top:4px;">${actor.name}</div></div>`;
+                        });
+                        extraHtml += `</div>`;
+                    }
+                    extraHtml += '</div>';
+                    
+                    body.innerHTML = body.innerHTML + extraHtml;
+                });
+
+                if(s.type === 'movie') {
+                    const ep = data.episodes[0]; // The dummy episode
+                    if(ep.is_watched) {
+                        body.innerHTML = `<h2>Status: <span style="color:var(--accent);">Watched</span></h2>
+                        <button class="btn-action" style="background:#333; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark as Unwatched</button>`;
+                    } else {
+                        body.innerHTML = `<h2>Status: Not Seen</h2>
+                        <button class="btn-action" onclick="ipcRenderer.invoke('log-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark as Watched</button>`;
+                    }
+                } else {
+                    // Group episodes by season
+                    let seasons = {};
+                    data.episodes.forEach(ep => {
+                        if(!seasons[ep.season_number]) seasons[ep.season_number] = [];
+                        seasons[ep.season_number].push(ep);
+                    });
+
+                    Object.keys(seasons).forEach(sNum => {
+                        let epsHtml = '';
+                        seasons[sNum].forEach(ep => {
+                            const hasAired = ep.air_date && new Date(ep.air_date) <= new Date();
+                            if(hasAired || ep.is_watched) {
+                                epsHtml += `
+                                    <div class="ep-row ${ep.is_watched ? 'ep-watched':''}" 
+                                         onclick="toggleEp(${ep.id}, ${ep.is_watched}, ${tmdbId}, '${type}', ${localDbId})"
+                                         oncontextmenu="event.preventDefault(); markUpTo(${ep.id}, ${s.id}, ${sNum}, ${ep.episode_number}, ${tmdbId}, '${type}', ${localDbId})">
+                                        <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
+                                        <div class="custom-checkbox"></div>
+                                    </div>
+                                `;
+                            } else {
+                                epsHtml += `
+                                    <div class="ep-row" style="opacity:0.3; cursor:not-allowed;" title="Airs on ${ep.air_date || 'TBA'}">
+                                        <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
+                                        <div style="font-size:0.75rem; color:#aaa;">${ep.air_date || 'TBA'}</div>
+                                    </div>
+                                `;
+                            }
+                        });
+
+                        body.innerHTML += `
+                            <div class="season-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                                <h3 style="margin:0;">Season ${sNum}</h3>
+                                <div style="display:flex; gap:10px;">
+                                    <button class="btn-action" style="font-size:0.75rem; padding: 4px 10px;" onclick="event.stopPropagation(); ipcRenderer.invoke('log-season', ${s.id}, ${sNum}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark All</button>
+                                </div>
+                            </div>
+                            <div class="season-content">${epsHtml}</div>
+                        `;
+                    });
+
+                    setTimeout(() => {
+                        const contents = document.querySelectorAll('.season-content');
+                        let opened = false;
+                        for(let c of contents) {
+                            if(c.querySelector('.ep-row:not(.ep-watched)')) {
+                                c.classList.add('open');
+                                opened = true;
+                                break;
+                            }
+                        }
+                        if(!opened && contents.length > 0) contents[contents.length-1].classList.add('open');
+                    }, 50);
+                }
+            }
+        }
+        function closeModal(e) { if(e) e.stopPropagation(); document.getElementById('modal').style.display = 'none'; loadLibrary(); loadDash(); }
+
+        async function saveShowMeta() {
+            if(!currentOpenShowId) return;
+            const r = parseInt(document.getElementById('m-rating').value) || 0;
+            const t = document.getElementById('m-tags').value || '';
+            const n = document.getElementById('m-notes').value || '';
+            const ok = await ipcRenderer.invoke('update-show-meta', currentOpenShowId, r, n, t);
+            if(ok) {
+                document.getElementById('m-meta-saved').style.display = 'inline';
+                setTimeout(() => {
+                    const el = document.getElementById('m-meta-saved');
+                    if(el) el.style.display = 'none';
+                }, 2000);
+                loadLibrary(); 
+            }
+        }
+
+        async function toggleTimezoneShift() {
+            if(!currentOpenShowId) return;
+            const ok = await ipcRenderer.invoke('toggle-timezone-offset', currentOpenShowId);
+            if(ok) {
+                openModal(currentOpenTmdbId, currentOpenType, true, currentOpenShowId);
+                loadLibrary();
+                loadDash();
+                if(document.getElementById('tab-calendar').classList.contains('active')) loadCalendar();
+            }
+        }
+
+        async function toggleEp(epId, isWatched, tmdbId, type, localDbId) {
+            if(isWatched) await ipcRenderer.invoke('unlog-episode', epId);
+            else await ipcRenderer.invoke('log-episode', epId);
+            openModal(tmdbId, type, true, localDbId);
+        }
+
+        async function markUpTo(epId, showId, seasonNum, epNum, tmdbId, type, localDbId) {
+            if(confirm(`Mark all episodes up to S${seasonNum}E${epNum} as watched?`)) {
+                await ipcRenderer.invoke('log-up-to', showId, seasonNum, epNum);
+                openModal(tmdbId, type, true, localDbId);
+            }
+        }
+
+        async function loadDash() {
+            const st = await ipcRenderer.invoke('get-stats');
+            let t = '';
+            if(st.time.m>0) t += `${st.time.m}mo `;
+            if(st.time.d>0) t += `${st.time.d}d `;
+            t += `${st.time.h}h`;
+            document.getElementById('st-time').innerText = t || '0h';
+            document.getElementById('st-eps').innerText = st.episodes;
+            
+            const c = document.getElementById('dash-incoming');
+            c.innerHTML = '';
+            
+            if(st.upcoming.length === 0) {
+                c.innerHTML = "<p>No upcoming media.</p>";
+            } else {
+                let htmlStr = '';
+                st.upcoming.forEach(ep => {
+                    const diff = Math.ceil(Math.abs(new Date(ep.air_date) - new Date()) / 86400000);
+                    const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
+                    const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
+                    
+                    const d = new Date(ep.air_date);
+                    const startStr = d.toISOString().split('T')[0].replace(/-/g, '');
+                    const nextD = new Date(d);
+                    nextD.setDate(nextD.getDate() + 1);
+                    const endStr = nextD.toISOString().split('T')[0].replace(/-/g, '');
+                    
+                    const encTitle = encodeURIComponent(titleText);
+                    const encDetails = encodeURIComponent(subtitle);
+                    const gCalLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encTitle}&dates=${startStr}/${endStr}&details=${encDetails}`;
+
+                    htmlStr += `
+                        <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
+                            <img src="${ep.poster_url}" class="poster-img">
+                            <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diff} DAYS</div>
+                            
+                            <button onclick="event.stopPropagation(); require('electron').shell.openExternal('${gCalLink}')" class="btn-add" style="background:white; color:black;" title="Add to Google Calendar">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            </button>
+                            
+                            <div class="card-info">
+                                <h2 class="show-title" style="font-size:0.9rem;">${titleText}</h2>
+                                <div style="font-size:0.75rem; color:#aaa; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${subtitle}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                c.innerHTML = htmlStr;
+            }
+        }
+
+        // Init
+        loadDash();
+        loadDiscover();
+        loadLibrary();
+    </script>
+</body>
+</html>

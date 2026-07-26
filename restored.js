@@ -1,0 +1,560 @@
+        const { ipcRenderer } = require('electron');
+            const tz = await ipcRenderer.invoke('get-setting', 'autoTimezoneShift');
+            document.getElementById('autoTimezoneToggle').checked = tz === '1';
+            await ipcRenderer.invoke('set-setting', 'autoTimezoneShift', isChecked ? '1' : '0');
+            const btn = document.getElementById('btn-sync-tz');
+            const status = document.getElementById('sync-tz-status');
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+            status.innerText = "Please wait, fetching metadata for your library...";
+            
+            const res = await ipcRenderer.invoke('sync-library-timezones');
+            btn.disabled = false;
+            btn.innerText = "Run Timezone Fix on Existing Library";
+            
+            if(res.success) {
+                status.innerText = `Success! Shifted ${res.count} US/Americas shows by +1 day.`;
+                loadLibrary();
+                loadDash();
+                if(document.getElementById('tab-calendar').classList.contains('active')) loadCalendar();
+            } else {
+                status.innerText = "Failed to sync timezones.";
+            }
+            const upcoming = await ipcRenderer.invoke('get-calendar');
+            const c = document.getElementById('grid-calendar');
+            c.innerHTML = '';
+            
+            if(upcoming.length === 0) {
+                c.innerHTML = "<p>No upcoming media scheduled.</p>";
+                return;
+            }
+
+            let lastDate = '';
+            let htmlStr = '';
+            upcoming.forEach(ep => {
+                if(ep.air_date !== lastDate) {
+                    if(htmlStr !== '') htmlStr += '</div>';
+                    htmlStr += `<h3 style="margin-top:2rem; margin-bottom:1rem; border-bottom:1px solid #333; padding-bottom:0.5rem; color:var(--accent);">${new Date(ep.air_date).toLocaleDateString('en-US', {weekday: 'long', month: 'short', day: 'numeric'})}</h3><div class="show-grid">`;
+                    lastDate = ep.air_date;
+                }
+                const diff = Math.ceil((new Date(ep.air_date) - new Date()) / 86400000);
+                const diffText = diff <= 0 ? 'TODAY' : diff + ' DAYS';
+                const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
+                const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
+                
+                htmlStr += `
+                    <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
+                        <img src="${ep.poster_url}" class="poster-img">
+                        <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diffText}</div>
+                        <div class="card-info">
+                            <h2 class="show-title" style="font-size:0.9rem;">${titleText}</h2>
+                            <div style="font-size:0.75rem; color:#aaa; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${subtitle}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            if(htmlStr !== '') htmlStr += '</div>';
+            c.innerHTML = htmlStr;
+            const q = document.getElementById('searchInput').value;
+            if(!q) return;
+            
+            if(!append) {
+                nav('discover');
+                document.getElementById('discover-title').innerText = `Search Results: "${q}"`;
+            }
+            
+            currentDiscoverPage = page;
+            isDiscoverSearch = true;
+            
+            const res = await ipcRenderer.invoke('search-tmdb', q, page);
+            renderDiscoverGrid(res, append);
+            if(document.getElementById('searchInput').value && !append) return; // Keep search active if typed
+            
+            if(!append) document.getElementById('discover-title').innerText = "Trending This Week";
+            
+            currentDiscoverPage = page;
+            isDiscoverSearch = false;
+            
+            const res = await ipcRenderer.invoke('get-trending', 'all', page);
+            renderDiscoverGrid(res, append);
+            if(isDiscoverSearch) executeSearch(currentDiscoverPage + 1, true);
+            else loadDiscover(currentDiscoverPage + 1, true);
+            localApiIds = await ipcRenderer.invoke('get-local-ids');
+            const c = document.getElementById('grid-discover');
+            
+            const oldBtn = document.getElementById('btn-load-more');
+            if (oldBtn) oldBtn.remove();
+            
+            if(!append) c.innerHTML = '';
+            
+            items.forEach(i => {
+                if(localApiIds.includes(i.id)) return;
+                
+                const type = i.media_type || (i.title ? 'movie' : 'tv');
+                const title = i.title || i.name;
+                
+                const card = document.createElement('div');
+                card.className = 'poster-card';
+                card.setAttribute('data-id', i.id);
+                card.onclick = () => openModal(i.id, type, false);
+                
+                card.innerHTML = `
+                    <img src="${getImg(i.poster_path)}" class="poster-img">
+                    <div class="tag ${type==='movie'?'tag-movie':'tag-tv'}">${type}</div>
+                    <button class="btn-add" onclick="event.stopPropagation(); ${type === 'movie' ? `openModal(${i.id}, 'movie', false)` : `quickAdd(${i.id}, 'tv', false)`} ">+</button>
+                    <div class="card-info"><h2 class="show-title">${title}</h2></div>
+                `;
+                c.appendChild(card);
+            });
+            
+            if (items.length > 0) {
+                const btnContainer = document.createElement('div');
+                btnContainer.id = 'btn-load-more';
+                btnContainer.style = 'grid-column: 1 / -1; display:flex; justify-content:center; margin-top: 2rem; margin-bottom: 2rem;';
+                btnContainer.innerHTML = `<button onclick="loadMoreDiscover()" style="background:transparent; border: 2px solid var(--accent); color:var(--accent); padding:12px 40px; border-radius:30px; font-weight:bold; font-size:1.1rem; cursor:pointer; transition:all 0.3s;" onmouseover="this.style.background='var(--accent)'; this.style.color='black'" onmouseout="this.style.background='transparent'; this.style.color='var(--accent)'">Load More Discoveries</button>`;
+                c.appendChild(btnContainer);
+            }
+            if(type === 'movie') {
+                await ipcRenderer.invoke('add-media', id, 'movie', markSeen);
+            } else {
+                await ipcRenderer.invoke('add-media', id, 'tv', false);
+            }
+            
+            localApiIds.push(id);
+            if(document.getElementById('tab-discover').classList.contains('active')) {
+                const card = document.querySelector(`.poster-card[data-id="${id}"]`);
+                if(card) {
+                    const btn = card.querySelector('.btn-add');
+                    if(btn) {
+                        btn.innerText = '✓';
+                        btn.style.background = 'var(--accent)';
+                        btn.style.color = 'black';
+                        btn.onclick = (e) => { e.stopPropagation(); }; // Prevent re-adding
+                    }
+                }
+            }
+            if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
+            libraryData = await ipcRenderer.invoke('get-library');
+            
+            const gSelect = document.getElementById('genreSelect');
+            if(gSelect) {
+                let genres = new Set();
+                libraryData.forEach(i => {
+                    if(i.genre) i.genre.split(',').forEach(g => genres.add(g.trim()));
+                });
+                let html = '<option value="all">All Genres</option>';
+                Array.from(genres).sort().forEach(g => {
+                    if(g) html += `<option value="${g}">${g}</option>`;
+                });
+                gSelect.innerHTML = html;
+            }
+            
+            renderLibraryGrid();
+            const c = document.getElementById('grid-library');
+            c.innerHTML = '';
+            
+            const q = document.getElementById('libSearchInput') ? document.getElementById('libSearchInput').value.toLowerCase() : '';
+            const g = document.getElementById('genreSelect') ? document.getElementById('genreSelect').value : 'all';
+            const s = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'lastWatchedDesc';
+            
+            // Filter Data
+            let filtered = libraryData.filter(i => {
+                if(q && !i.title.toLowerCase().includes(q)) return false;
+                if(g !== 'all' && (!i.genre || !i.genre.includes(g))) return false;
+
+                if(curLibType === 'all') return true;
+                if(i.type !== curLibType) return false;
+                
+                if(curLibType === 'movie') {
+                    if(curLibState === 'seen') return i.watchedEpisodes > 0;
+                    if(curLibState === 'watchlist') return i.watchedEpisodes === 0;
+                } else {
+                    if(curLibState === 'stopped') return i.is_stopped === 1;
+                    if(i.is_stopped === 1) return false; // Hide stopped from active views
+                    
+                    if(curLibState === 'finished') return i.totalEpisodes > 0 && i.watchedEpisodes === i.totalEpisodes && (i.status === 'Ended' || i.status === 'Canceled');
+                    if(curLibState === 'uptodate') return i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled';
+                    if(curLibState === 'watching') return i.watchedEpisodes < i.airedEpisodes;
+                }
+                return false;
+            });
+
+            filtered.sort((a,b) => {
+                if(s === 'titleAsc') return a.title.localeCompare(b.title);
+                if(s === 'addedDesc') return b.id - a.id;
+                if(s === 'ratingDesc') return (b.user_rating || 0) - (a.user_rating || 0);
+                if(s === 'episodesDesc') return (b.watchedEpisodes || 0) - (a.watchedEpisodes || 0);
+                if(s === 'notWatchedAsc') {
+                    if (a.watchedEpisodes === b.watchedEpisodes) return a.title.localeCompare(b.title);
+                    return a.watchedEpisodes - b.watchedEpisodes;
+                }
+                if(s === 'lastWatchedDesc') {
+                    const timeA = a.lastWatched ? new Date(a.lastWatched).getTime() : 0;
+                    const timeB = b.lastWatched ? new Date(b.lastWatched).getTime() : 0;
+                    return timeB - timeA;
+                }
+                return 0;
+            });
+
+            if(filtered.length === 0) {
+                c.innerHTML = "<p>No media found in this category.</p>";
+                return;
+            }
+
+            let htmlStr = '';
+            filtered.forEach(i => {
+                const pct = i.totalEpisodes > 0 ? (i.watchedEpisodes / i.totalEpisodes) * 100 : 0;
+                
+                let statusColor = '#8e8e93'; // grey
+                let statusText = 'Not Started';
+                if(i.type === 'movie') {
+                    if(i.watchedEpisodes > 0) { statusColor = '#34c759'; statusText = 'Seen'; }
+                    else { statusColor = '#ff9f0a'; statusText = 'Watchlist'; }
+                } else {
+                    if(i.is_stopped === 1) { statusColor = '#ff3b30'; statusText = 'Stopped'; }
+                    else if(i.totalEpisodes > 0 && i.watchedEpisodes === i.totalEpisodes && (i.status === 'Ended' || i.status === 'Canceled')) { statusColor = '#34c759'; statusText = 'Finished'; }
+                    else if(i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled') { statusColor = '#0a84ff'; statusText = 'Up to Date'; }
+                    else if(i.watchedEpisodes > 0) { statusColor = '#FFD600'; statusText = 'Watching'; }
+                }
+
+                htmlStr += `
+                    <div class="poster-card" onclick="openModal(${i.api_id}, '${i.type}', true, ${i.id})" style="box-shadow: inset 0 0 0 3px ${statusColor}cc;">
+                        <img src="${i.posterUrl}" class="poster-img">
+                        <div class="tag" style="top:8px; right:8px; background:${statusColor}; color:black; font-weight:900;">${statusText}</div>
+                        <div class="card-info">
+                            <h2 class="show-title">${i.title}</h2>
+                            ${i.type === 'tv' ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.totalEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            c.innerHTML = htmlStr;
+        // Listen for real-time progress updates from Node.js
+        ipcRenderer.on('import-progress', (event, msg) => {
+            document.getElementById('import-status').innerText = msg;
+        });
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // In Electron, the file object contains the exact physical path on your hard drive
+            const filePath = file.path; 
+            
+            const statusEl = document.getElementById('import-status');
+            statusEl.innerText = "Analyzing file and beginning import... This may take a few minutes.";
+            
+            // Disable interactions while importing to prevent database locks
+            document.querySelector('#csv-upload').disabled = true;
+
+            const result = await ipcRenderer.invoke('import-csv', filePath);
+            
+            if (result.success) {
+                statusEl.style.color = '#34c759'; // Success Green
+                statusEl.innerText = result.msg;
+                // Refresh the whole UI to show the new data!
+                loadDash();
+                loadLibrary();
+            } else {
+                statusEl.style.color = '#ff3b30'; // Error Red
+                statusEl.innerText = result.msg;
+            }
+
+            // Reset the input so you can upload again if needed
+            document.getElementById('csv-upload').value = "";
+            document.querySelector('#csv-upload').disabled = false;
+            const file = event.target.files[0];
+            if(!file) return;
+            const res = await ipcRenderer.invoke('gcal-auth', file.path);
+            if(res.success) {
+                require('electron').shell.openExternal(res.url);
+                document.getElementById('gcal-code').style.display = 'block';
+                const btn = document.getElementById('btn-creds');
+                btn.innerText = "2. Submit Code";
+                btn.onclick = async () => {
+                    const code = document.getElementById('gcal-code').value;
+                    if(!code) return alert("Paste the code first!");
+                    const r2 = await ipcRenderer.invoke('gcal-token', code);
+                    if(r2.success) {
+                        document.getElementById('gcal-status').style.color = '#34c759';
+                        document.getElementById('gcal-status').innerText = "Authenticated! Ready to sync.";
+                        document.getElementById('gcal-code').style.display = 'none';
+                        btn.innerText = "Re-Authenticate";
+                        btn.onclick = () => document.getElementById('gcal-creds').click();
+                    } else {
+                        alert(r2.msg);
+                    }
+                };
+            } else {
+                alert(res.msg);
+            }
+            event.target.value = '';
+            const st = document.getElementById('gcal-status');
+            if(st) { st.style.color = 'var(--accent)'; st.innerText = "Syncing events, please wait..."; }
+            
+            const btn = document.getElementById('btn-sync');
+            let prevText = "Sync Now";
+            if(btn) { prevText = btn.innerText; btn.innerText = "Syncing..."; btn.disabled = true; }
+            
+            const res = await ipcRenderer.invoke('gcal-sync');
+            if(res.success) {
+                if(st) { st.style.color = '#34c759'; st.innerText = res.msg; }
+                alert(res.msg);
+            } else {
+                if(st) { st.style.color = '#ff3b30'; st.innerText = res.msg; }
+                alert(res.msg);
+            }
+            if(btn) { btn.innerText = prevText; btn.disabled = false; }
+            const btn = document.querySelector('button[onclick="exportCalendar()"]');
+            if(btn) { btn.innerText = "Exporting..."; btn.disabled = true; }
+            const result = await ipcRenderer.invoke('export-calendar');
+            alert(result.msg);
+            if(btn) { 
+                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export .ics`; 
+                btn.disabled = false; 
+            }
+            const token = document.getElementById('gist-token').value.trim();
+            if(!token) return alert("Please enter a GitHub Personal Access Token.");
+            
+            const st = document.getElementById('gist-status');
+            st.style.color = 'var(--accent)';
+            st.innerText = "Creating secure Gist...";
+            
+            const res = await ipcRenderer.invoke('gist-setup', token);
+            if(res.success) {
+                st.style.color = '#34c759';
+                st.innerText = "Success! Add this URL to Google Calendar 'From URL':";
+                document.getElementById('gist-url').style.display = 'block';
+                document.getElementById('gist-url').value = res.url;
+            } else {
+                st.style.color = '#ff3b30';
+                st.innerText = res.msg;
+                alert("Error: " + res.msg);
+            }
+            const st = document.getElementById('gist-status');
+            st.style.color = 'var(--accent)';
+            st.innerText = "Syncing update to GitHub...";
+            
+            const res = await ipcRenderer.invoke('gist-sync');
+            if(res.success) {
+                st.style.color = '#34c759';
+                st.innerText = "Gist successfully synced!";
+            } else {
+                st.style.color = '#ff3b30';
+                st.innerText = res.msg;
+                alert(res.msg);
+            }
+            document.getElementById('m-title').innerText = "Loading...";
+            document.getElementById('m-body').innerHTML = "";
+            document.getElementById('m-actions').innerHTML = "";
+
+            if(!isLocal) {
+                // Not in library - show preview and add button
+                document.getElementById('m-extra-meta').style.display = 'none';
+                currentOpenShowId = null;
+                const data = await ipcRenderer.invoke('get-tmdb-details', tmdbId, type);
+                document.getElementById('m-title').innerText = data.title || data.name;
+                document.getElementById('m-poster').src = getImg(data.poster_path);
+                document.getElementById('m-meta').innerText = type.toUpperCase();
+                document.getElementById('m-overview').innerText = data.overview;
+                
+                if (type === 'movie') {
+                    document.getElementById('m-actions').innerHTML = `
+                        <button class="btn-action" style="background:#ff9f0a;" onclick="quickAdd(${tmdbId}, 'movie', false); closeModal();">Add to Watchlist</button>
+                        <button class="btn-action" style="background:#34c759;" onclick="quickAdd(${tmdbId}, 'movie', true); closeModal();">Mark as Seen</button>
+                    `;
+                } else {
+                    document.getElementById('m-actions').innerHTML = `<button class="btn-action" onclick="quickAdd(${tmdbId}, 'tv', false); closeModal();">Add to Library</button>`;
+                }
+            } else {
+                // It's local! Fetch rich details from our SQLite DB
+                // If we don't have localDbId (clicked from discover), find it
+                if(!localDbId) {
+                    const lib = await ipcRenderer.invoke('get-library');
+                    const match = lib.find(x => x.api_id === tmdbId);
+                    if(match) localDbId = match.id;
+                }
+                
+                const data = await ipcRenderer.invoke('get-show-details', localDbId);
+                const s = data.show;
+                
+                document.getElementById('m-extra-meta').style.display = 'block';
+                currentOpenShowId = s.id;
+                currentOpenTmdbId = tmdbId;
+                currentOpenType = type;
+                document.getElementById('m-rating').value = s.user_rating || 0;
+                document.getElementById('m-notes').value = s.user_notes || '';
+                document.getElementById('m-tags').value = s.custom_tags || '';
+                
+                document.getElementById('m-title').innerText = s.title;
+                document.getElementById('m-poster').src = s.poster_url;
+                document.getElementById('m-meta').innerText = s.genre;
+                document.getElementById('m-overview').innerText = s.overview;
+                
+                // Header Actions
+                let actions = `<button class="btn-delete" onclick="if(confirm('Remove completely?')) { ipcRenderer.invoke('remove-show', ${s.id}).then(()=> { closeModal(); loadLibrary(); loadDash(); }) }">Delete</button>`;
+                if(s.type === 'tv') {
+                    actions += s.is_stopped ? 
+                        `<button class="btn-action" style="background:#34c759;" onclick="ipcRenderer.invoke('set-stopped', ${s.id}, 0).then(()=> { closeModal(); loadLibrary(); })">Restore Show</button>` : 
+                        `<button class="btn-action" style="background:#ff9f0a;" onclick="ipcRenderer.invoke('set-stopped', ${s.id}, 1).then(()=> { closeModal(); loadLibrary(); })">Stop Watching</button>`;
+                    
+                    const tzText = s.timezone_offset === 1 ? "Revert Timezone Shift" : "Apply +1 Day (Local Time)";
+                    const tzBg = s.timezone_offset === 1 ? "var(--accent)" : "#444";
+                    const tzColor = s.timezone_offset === 1 ? "black" : "white";
+                    actions += `<button class="btn-action" style="background:${tzBg}; color:${tzColor};" onclick="toggleTimezoneShift()" title="Shifts all episode air dates by +1 day for your timezone">${tzText}</button>`;
+                }
+                document.getElementById('m-actions').innerHTML = actions;
+
+                // Body: Episodes or Movie actions
+                const body = document.getElementById('m-body');
+                body.innerHTML = '';
+                
+                ipcRenderer.invoke('get-tmdb-extra', tmdbId, type).then(extra => {
+                    if(!extra) return;
+                    let extraHtml = '<div style="margin-top:2rem; padding-top:2rem; border-top:1px solid #333;">';
+                    
+                    if(extra.videos && extra.videos.results) {
+                        const tr = extra.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                        if(tr) extraHtml += `<button class="btn-action" style="background:#ff3b30; color:white; margin-bottom:1rem;" onclick="require('electron').shell.openExternal('https://youtube.com/watch?v=${tr.key}')">▶ Watch Trailer</button>`;
+                    }
+                    
+                    if(extra.credits && extra.credits.cast && extra.credits.cast.length > 0) {
+                        extraHtml += `<h3>Top Cast</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
+                        extra.credits.cast.slice(0, 8).forEach(actor => {
+                            const img = actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                            extraHtml += `<div style="text-align:center; width:100px; flex-shrink:0;"><img src="${img}" style="width:100px; height:150px; object-fit:cover; border-radius:8px;"><div style="font-size:0.75rem; margin-top:4px;">${actor.name}</div></div>`;
+                        });
+                        extraHtml += `</div>`;
+                    }
+                    extraHtml += '</div>';
+                    
+                    body.innerHTML = body.innerHTML + extraHtml;
+                });
+
+                if(s.type === 'movie') {
+                    const ep = data.episodes[0]; // The dummy episode
+                    if(ep.is_watched) {
+                        body.innerHTML = `<h2>Status: <span style="color:var(--accent);">Watched</span></h2>
+                        <button class="btn-action" style="background:#333; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark as Unwatched</button>`;
+                    } else {
+                        body.innerHTML = `<h2>Status: Not Seen</h2>
+                        <button class="btn-action" onclick="ipcRenderer.invoke('log-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark as Watched</button>`;
+                    }
+                } else {
+                    // Group episodes by season
+                    let seasons = {};
+                    data.episodes.forEach(ep => {
+                        if(!seasons[ep.season_number]) seasons[ep.season_number] = [];
+                        seasons[ep.season_number].push(ep);
+                    });
+
+                    Object.keys(seasons).forEach(sNum => {
+                        let epsHtml = '';
+                        seasons[sNum].forEach(ep => {
+                            const hasAired = ep.air_date && new Date(ep.air_date) <= new Date();
+                            if(hasAired || ep.is_watched) {
+                                epsHtml += `
+                                    <div class="ep-row ${ep.is_watched ? 'ep-watched':''}" 
+                                         onclick="toggleEp(${ep.id}, ${ep.is_watched}, ${tmdbId}, '${type}', ${localDbId})"
+                                         oncontextmenu="event.preventDefault(); markUpTo(${ep.id}, ${s.id}, ${sNum}, ${ep.episode_number}, ${tmdbId}, '${type}', ${localDbId})">
+                                        <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
+                                        <div class="custom-checkbox"></div>
+                                    </div>
+                                `;
+                            } else {
+                                epsHtml += `
+                                    <div class="ep-row" style="opacity:0.3; cursor:not-allowed;" title="Airs on ${ep.air_date || 'TBA'}">
+                                        <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
+                                        <div style="font-size:0.75rem; color:#aaa;">${ep.air_date || 'TBA'}</div>
+                                    </div>
+                                `;
+                            }
+                        });
+
+                        body.innerHTML += `
+                            <div class="season-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                                <h3 style="margin:0;">Season ${sNum}</h3>
+                                <div style="display:flex; gap:10px;">
+                                    <button class="btn-action" style="font-size:0.75rem; padding: 4px 10px;" onclick="event.stopPropagation(); ipcRenderer.invoke('log-season', ${s.id}, ${sNum}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark All</button>
+                                </div>
+                            </div>
+                            <div class="season-content">${epsHtml}</div>
+                        `;
+                    });
+
+                    setTimeout(() => {
+                        const contents = document.querySelectorAll('.season-content');
+                        let opened = false;
+                        for(let c of contents) {
+                            if(c.querySelector('.ep-row:not(.ep-watched)')) {
+                                c.classList.add('open');
+                                opened = true;
+                                break;
+                            }
+                        }
+                        if(!opened && contents.length > 0) contents[contents.length-1].classList.add('open');
+                    }, 50);
+                }
+            }
+            if(!currentOpenShowId) return;
+            const r = parseInt(document.getElementById('m-rating').value) || 0;
+            const t = document.getElementById('m-tags').value || '';
+            const n = document.getElementById('m-notes').value || '';
+            const ok = await ipcRenderer.invoke('update-show-meta', currentOpenShowId, r, n, t);
+            if(ok) {
+                document.getElementById('m-meta-saved').style.display = 'inline';
+                setTimeout(() => {
+                    const el = document.getElementById('m-meta-saved');
+                    if(el) el.style.display = 'none';
+                }, 2000);
+                loadLibrary(); 
+            }
+            if(!currentOpenShowId) return;
+            const ok = await ipcRenderer.invoke('toggle-timezone-offset', currentOpenShowId);
+            if(ok) {
+                openModal(currentOpenTmdbId, currentOpenType, true, currentOpenShowId);
+                loadLibrary();
+                loadDash();
+                if(document.getElementById('tab-calendar').classList.contains('active')) loadCalendar();
+            }
+            if(isWatched) await ipcRenderer.invoke('unlog-episode', epId);
+            else await ipcRenderer.invoke('log-episode', epId);
+            openModal(tmdbId, type, true, localDbId);
+            if(confirm(`Mark all episodes up to S${seasonNum}E${epNum} as watched?`)) {
+                await ipcRenderer.invoke('log-up-to', showId, seasonNum, epNum);
+                openModal(tmdbId, type, true, localDbId);
+            }
+            const st = await ipcRenderer.invoke('get-stats');
+            let t = '';
+            if(st.time.m>0) t += `${st.time.m}mo `;
+            if(st.time.d>0) t += `${st.time.d}d `;
+            t += `${st.time.h}h`;
+            document.getElementById('st-time').innerText = t || '0h';
+            document.getElementById('st-eps').innerText = st.episodes;
+            
+            const c = document.getElementById('dash-incoming');
+            c.innerHTML = '';
+            
+            if(st.upcoming.length === 0) {
+                c.innerHTML = "<p>No upcoming media.</p>";
+            } else {
+                let htmlStr = '';
+                st.upcoming.forEach(ep => {
+                    const diff = Math.ceil(Math.abs(new Date(ep.air_date) - new Date()) / 86400000);
+                    const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
+                    const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
+                    
+                    const d = new Date(ep.air_date);
+                    const startStr = d.toISOString().split('T')[0].replace(/-/g, '');
+                    const nextD = new Date(d);
+                    nextD.setDate(nextD.getDate() + 1);
+                    const endStr = nextD.toISOString().split('T')[0].replace(/-/g, '');
+                    
+                    const encTitle = encodeURIComponent(titleText);
+                    const encDetails = encodeURIComponent(subtitle);
+                    const gCalLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encTitle}&dates=${startStr}/${endStr}&details=${encDetails}`;
+
+                    htmlStr += `
+                        <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
+                            <img src="${ep.poster_url}" class="poster-img">
+                            <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diff} DAYS</div>
+                            
