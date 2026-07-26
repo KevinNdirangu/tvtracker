@@ -590,24 +590,16 @@
             }
         }
 
-        async function quickAdd(id, type, markSeen = false, btn = null) {
-            if(btn) {
-                btn.disabled = true;
-                btn.innerHTML = '...';
-            }
-            if(type === 'movie') {
-                await ipcRenderer.invoke('add-media', id, 'movie', markSeen);
-            } else {
-                await ipcRenderer.invoke('add-media', id, 'tv', false);
-            }
-            
+        function quickAdd(id, type, markSeen = false, btn = null) {
+            // Optimistic UI Update - Instantly show success!
             localApiIds.push(id);
             
             if(btn) {
                 btn.innerHTML = '✓';
                 btn.style.background = 'var(--accent)';
                 btn.style.color = 'black';
-                btn.onclick = (e) => { e.stopPropagation(); }; // Prevent re-adding
+                btn.disabled = true;
+                btn.onclick = (e) => { e.stopPropagation(); };
             } else if(document.getElementById('tab-discover').classList.contains('active')) {
                 const card = document.querySelector(`.poster-card[data-id="${id}"]`);
                 if(card) {
@@ -616,18 +608,33 @@
                         b.innerHTML = '✓';
                         b.style.background = 'var(--accent)';
                         b.style.color = 'black';
-                        b.onclick = (e) => { e.stopPropagation(); }; // Prevent re-adding
+                        b.disabled = true;
+                        b.onclick = (e) => { e.stopPropagation(); };
                     }
                 }
             }
-            
-            // Re-render library
-            const t = document.getElementById('libSearchInput').value;
-            if(!t) {
-                const lib = await api.getLibrary();
-                localStorage.setItem('tvt_lib', JSON.stringify(lib));
-            }
-            if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
+
+            // Background Job for Database Sync
+            const bgJob = async () => {
+                try {
+                    if(type === 'movie') {
+                        await ipcRenderer.invoke('add-media', id, 'movie', markSeen);
+                    } else {
+                        await ipcRenderer.invoke('add-media', id, 'tv', false);
+                    }
+                    
+                    // Re-render library after DB sync completes
+                    const t = document.getElementById('libSearchInput').value;
+                    if(!t) {
+                        const lib = await api.getLibrary();
+                        localStorage.setItem('tvt_lib', JSON.stringify(lib));
+                    }
+                    if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
+                } catch(e) {
+                    console.error('Background add failed', e);
+                }
+            };
+            bgJob();
         }
 
         // --- LIBRARY LOGIC ---
