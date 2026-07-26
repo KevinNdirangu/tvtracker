@@ -632,6 +632,16 @@
                     if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
                 } catch(e) {
                     console.error('Background add failed', e);
+                    alert("Failed to add to database! Please check your connection.");
+                    
+                    // Revert UI if btn was passed
+                    if(btn) {
+                        btn.innerHTML = '+';
+                        btn.style.background = 'transparent';
+                        btn.style.color = 'var(--text-muted)';
+                        btn.disabled = false;
+                        btn.onclick = (e) => { e.stopPropagation(); quickAdd(id, type, markSeen, btn); };
+                    }
                 }
             };
             bgJob();

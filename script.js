@@ -181,11 +181,16 @@ const api = {
         if (existingShow) {
             localId = existingShow.id;
         } else {
-            const { data: insertedShow } = await supabaseClient.from('shows').insert({
+            const { data: insertedShow, error } = await supabaseClient.from('shows').insert({
                 api_id: data.id, title: data.title || data.name, genre: (data.genres || []).map(g=>g.name).join(', '),
-                overview: data.overview, poster_url: posterUrl, total_episodes: isMovie ? 1 : data.number_of_episodes,
+                overview: data.overview, poster_url: posterUrl, total_episodes: isMovie ? 1 : (data.number_of_episodes || 0),
                 status: data.status, type: type, timezone_offset: shouldShift ? 1 : 0
             }).select().single();
+            
+            if (error) {
+                console.error("Error inserting show:", error);
+                throw error;
+            }
             localId = insertedShow.id;
         }
 
@@ -211,14 +216,16 @@ const api = {
         if (newEps.length > 0) {
             // Chunk episode inserts to avoid payload limits
             for (let i = 0; i < newEps.length; i += 500) {
-                await supabaseClient.from('episodes').insert(newEps.slice(i, i + 500));
+                const { error: epError } = await supabaseClient.from('episodes').insert(newEps.slice(i, i + 500));
+                if (epError) console.error("Error inserting episodes:", epError);
             }
         }
 
         await supabaseClient.from('shows').update({ is_stopped: 0 }).eq('id', localId);
 
         if (markSeen && isMovie) {
-            const { data: epData } = await supabaseClient.from('episodes').select('id').eq('show_id', localId).maybeSingle();
+            const { data: epData, error: selErr } = await supabaseClient.from('episodes').select('id').eq('show_id', localId).maybeSingle();
+            if (selErr) console.error("Error finding movie episode:", selErr);
             if (epData) await this.logEpisode(epData.id);
         }
         return true;
