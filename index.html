@@ -1318,7 +1318,6 @@
             const st = await ipcRenderer.invoke('get-stats');
             if(!st) return;
             
-            // Re-fetch library for detailed breakdown
             const lib = await ipcRenderer.invoke('get-library');
             const genreCounts = {};
             let startedShows = 0;
@@ -1328,6 +1327,7 @@
             
             let mostBingedShowTitle = "None";
             let mostBingedShowProgress = 0;
+            let movieMinutes = 0;
             
             lib.forEach(i => {
                 if (i.type === 'tv') {
@@ -1346,7 +1346,10 @@
                 }
                 
                 if (i.type === 'movie') {
-                    if (i.progress > 0) completedMovies++;
+                    if (i.progress > 0) {
+                        completedMovies++;
+                        movieMinutes += (i.runtime || 120);
+                    }
                     else watchlistSize++;
                 }
 
@@ -1358,56 +1361,130 @@
                 }
             });
             
+            const tvMinutes = Math.max(0, st.total_minutes - movieMinutes);
             const completionRate = startedShows > 0 ? Math.round((completedShows / startedShows) * 100) : 0;
-            const favGenre = Object.entries(genreCounts).sort((a,b) => b[1] - a[1])[0];
-            const favGenreName = favGenre ? favGenre[0] : "Everything";
             
-            let timeStr = '';
-            if (st.time.m > 0) timeStr += `${st.time.m} months, `;
-            if (st.time.d > 0) timeStr += `${st.time.d} days, `;
-            timeStr += `${st.time.h} hours`;
-            if (timeStr === '0 hours') timeStr = 'a few minutes';
+            // Format Time
+            const formatTime = (mins) => {
+                return {
+                    mo: Math.floor(mins / 43200),
+                    d: Math.floor((mins % 43200) / 1440),
+                    h: Math.floor((mins % 1440) / 60),
+                    m: Math.floor(mins % 60)
+                };
+            };
+            const totalT = formatTime(st.total_minutes);
             
+            // Badges
+            let badges = [];
+            if (st.total_minutes > 525600) badges.push({ icon: '⏳', name: 'Time Lord', desc: '1 Year+ Watch Time' });
+            if (completedMovies >= 50) badges.push({ icon: '🍿', name: 'Cinephile', desc: '50+ Movies' });
+            if (completedShows >= 10) badges.push({ icon: '🏆', name: 'Completionist', desc: '10+ Shows Finished' });
+            if (startedShows > 0 && completionRate >= 90) badges.push({ icon: '🎯', name: 'Sharpshooter', desc: '>90% Completion Rate' });
+            if (st.episodes > 1000) badges.push({ icon: '🔥', name: 'Serial Binger', desc: '1,000+ Episodes' });
+            
+            const badgesHtml = badges.length > 0 ? badges.map(b => `
+                <div style="background:var(--bg); border:1px solid #333; padding:1rem; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                    <div style="font-size:2.5rem; margin-bottom:0.5rem;">${b.icon}</div>
+                    <div style="font-weight:bold; font-size:1rem; color:var(--text);">${b.name}</div>
+                    <div style="font-size:0.75rem; color:#aaa; margin-top:0.25rem;">${b.desc}</div>
+                </div>
+            `).join('') : '<p style="color:#666; font-size:0.9rem;">Keep watching to unlock achievements!</p>';
+
+            // Top Genres
+            const sortedGenres = Object.entries(genreCounts).sort((a,b) => b[1] - a[1]);
+            const topGenres = sortedGenres.slice(0, 3);
+            const maxGenreVal = topGenres.length > 0 ? topGenres[0][1] : 1;
+            const genresHtml = topGenres.map(g => `
+                <div style="margin-bottom:1rem;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:0.25rem;">
+                        <span style="color:white;">${g[0]}</span>
+                        <span style="color:var(--accent); font-weight:bold;">${g[1]} entries</span>
+                    </div>
+                    <div class="progress-bar-bg" style="height:8px; border-radius:4px; margin:0;"><div class="progress-bar-fill" style="width:${(g[1]/maxGenreVal)*100}%; background:var(--accent); border-radius:4px;"></div></div>
+                </div>
+            `).join('');
+
             const storyHtml = `
-                <div style="background:var(--card-bg); padding:2.5rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                    <h2 style="font-size:2.5rem; margin-top:0; color:white; line-height:1.2;">You've spent <span style="color:var(--accent);">${timeStr}</span> of your life watching TV.</h2>
-                    <p style="color:#aaa; font-size:1.2rem; margin-bottom:0;">That's a total of <strong>${st.episodes}</strong> episodes logged!</p>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem;">
+                    <h2 style="font-size:2rem; margin:0; color:white; line-height:1;">Lifetime Watch Time</h2>
+                    <div style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${st.total_minutes.toLocaleString()} mins</div>
                 </div>
                 
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem;">
-                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center; display:flex; flex-direction:column; justify-content:center;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1.2rem; font-weight:normal;">Your favorite decade is the</h3>
-                        <div style="font-size:3.5rem; font-weight:900; color:var(--accent); margin:1rem 0;">${st.favDecade}</div>
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; margin-bottom:2rem;">
+                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.mo}</div>
+                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Months</div>
                     </div>
-                    
-                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center; display:flex; flex-direction:column; justify-content:center;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1.2rem; font-weight:normal;">Your go-to genre is</h3>
-                        <div style="font-size:3.5rem; font-weight:900; color:var(--accent); margin:1rem 0;">${favGenreName}</div>
+                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.d}</div>
+                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Days</div>
+                    </div>
+                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.h}</div>
+                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Hours</div>
+                    </div>
+                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.m}</div>
+                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Mins</div>
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:2rem;">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem; margin-bottom:2rem;">
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">TV Shows</h3>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #222;">
+                            <span style="color:white; font-size:1.2rem;">Total Episodes</span>
+                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${st.episodes.toLocaleString()}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:white; font-size:1.2rem;">Time Spent</span>
+                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${Math.round(tvMinutes/60).toLocaleString()} hrs</span>
+                        </div>
+                    </div>
+                    
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Movies</h3>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #222;">
+                            <span style="color:white; font-size:1.2rem;">Total Logged</span>
+                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${completedMovies.toLocaleString()}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:white; font-size:1.2rem;">Time Spent</span>
+                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${Math.round(movieMinutes/60).toLocaleString()} hrs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem; margin-bottom:2rem;">
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Top Genres</h3>
+                        ${genresHtml || '<p style="color:#666;">No genre data available.</p>'}
+                    </div>
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Achievements</h3>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap:1rem;">
+                            ${badgesHtml}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:2rem; margin-bottom:2rem;">
                     <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
                         <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Most Binged Show</h3>
-                        <div style="font-size:1.5rem; font-weight:900; color:white; margin-top:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${mostBingedShowTitle}</div>
+                        <div style="font-size:1.5rem; font-weight:900; color:white; margin-top:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${mostBingedShowTitle}">${mostBingedShowTitle}</div>
                         <div style="color:var(--accent); font-size:1rem; margin-top:0.5rem;">${mostBingedShowProgress} episodes</div>
                     </div>
                     <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Watchlist Size</h3>
-                        <div style="font-size:2.5rem; font-weight:900; color:white; margin-top:0.5rem;">${watchlistSize}</div>
-                        <div style="color:var(--accent); font-size:1rem; margin-top:0.5rem;">shows & movies</div>
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Started vs Completed</h3>
+                        <div style="font-size:2.5rem; font-weight:900; color:white; margin-top:0.5rem;">${completedShows} <span style="font-size:1rem; color:#aaa; font-weight:normal;">/ ${startedShows}</span></div>
+                        <div class="progress-bar-bg" style="height:8px; border-radius:4px; margin: 1rem auto 0; background:#222; max-width:80%;"><div class="progress-bar-fill" style="width:${completionRate}%; background:var(--accent); border-radius:4px;"></div></div>
                     </div>
                     <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Movies Logged</h3>
-                        <div style="font-size:2.5rem; font-weight:900; color:white; margin-top:0.5rem;">${completedMovies}</div>
-                        <div style="color:var(--accent); font-size:1rem; margin-top:0.5rem;">total</div>
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Favorite Decade</h3>
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent); margin-top:0.5rem;">${st.favDecade}</div>
+                        <div style="color:#aaa; font-size:0.9rem; margin-top:0.5rem;">Highest watch volume</div>
                     </div>
-                </div>
-                
-                <div style="background:var(--card-bg); padding:2.5rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                    <h2 style="font-size:2.5rem; margin-top:0; color:white; line-height:1.2;">The Completionist</h2>
-                    <p style="color:#aaa; font-size:1.2rem; margin-bottom:1rem;">You have completely finished <strong>${completedShows}</strong> TV shows.</p>
-                    <div class="progress-bar-bg" style="height:12px; border-radius:6px; margin: 0 auto; max-width: 400px; background:#222;"><div class="progress-bar-fill" style="width:${completionRate}%; background:var(--accent); border-radius:6px;"></div></div>
                 </div>
             `;
             

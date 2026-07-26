@@ -399,7 +399,8 @@ const api = {
         
         return { 
             episodes: epCount, 
-            time: { m: Math.floor(tm/43200), d: Math.floor((tm%43200)/1440), h: Math.floor((tm%1440)/60) }, 
+            time: { m: Math.floor(tm/43200), d: Math.floor((tm%43200)/1440), h: Math.floor((tm%1440)/60) },
+            total_minutes: tm,
             upcoming,
             favDecade
         };
