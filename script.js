@@ -5,6 +5,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function fetchAllParallel(table, select) {
+    const step = 999;
     const { count } = await supabaseClient.from(table).select('*', { count: 'exact', head: true });
     const promises = [];
     for (let from = 0; from < count; from += (step + 1)) {
