@@ -262,24 +262,6 @@
                 </div>
             </div>
 
-            <!-- Google Calendar -->
-            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                    <h4 style="margin: 0 0 0.5rem 0; display:flex; align-items:center; gap:8px;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        Google Calendar Auto-Sync (API)
-                    </h4>
-                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom:0.5rem;">Requires GCP Project. Syncs with Kenyan Timezone (Africa/Nairobi).</div>
-                    <div id="gcal-status" style="color: var(--accent); font-size: 0.85rem; font-weight: bold;"></div>
-                    <input type="text" id="gcal-code" placeholder="Paste Auth Code Here..." style="display:none; width:100%; padding:8px; margin-top:5px; box-sizing:border-box; background:#111; border:1px solid #333; color:white; border-radius:4px;">
-                </div>
-                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;" id="gcal-actions">
-                    <input type="file" id="gcal-creds" accept=".json" style="display: none;" onchange="handleGcalCreds(event)">
-                    <button class="btn-action" style="background: #333; color: white; flex-grow:1;" onclick="document.getElementById('gcal-creds').click()" id="btn-creds">Upload Credentials</button>
-                    <button class="btn-action" style="flex-grow:1;" onclick="syncGcal()" id="btn-sync">Sync API</button>
-                </div>
-            </div>
-
             <!-- GitHub Gist Calendar Subscription -->
             <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; grid-column: 1 / -1;">
                 <div>
