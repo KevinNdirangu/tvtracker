@@ -159,10 +159,20 @@
     <div id="tab-dashboard" class="tab-content active">
         <h2 style="margin-top:0; margin-bottom:2rem; font-size: 2.2rem;">Welcome to TV Time, <span style="color:var(--accent);">Kevin</span>!</h2>
         
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin: 0; margin-bottom: 1rem;">Continue Watching</h3>
-        </div>
+        <h3 style="margin: 0; margin-bottom: 1rem;">Continue Watching</h3>
         <div id="dash-continue-watching" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+
+        <h3 style="margin: 0; margin-bottom: 1rem;">Up Next to Start</h3>
+        <div id="dash-up-next" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+
+        <h3 style="margin: 0; margin-bottom: 1rem;">Airing Today</h3>
+        <div id="dash-airing-today" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+
+        <h3 style="margin: 0; margin-bottom: 1rem;">New Episodes This Week</h3>
+        <div id="dash-this-week" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+
+        <h3 style="margin: 0; margin-bottom: 1rem;">Recently Released Movies</h3>
+        <div id="dash-recent-movies" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
 
         <h3 style="margin: 0; margin-bottom: 1rem;">Your Stats</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
@@ -718,13 +728,12 @@
             renderContinueWatching();
         }
         
-        function renderContinueWatching() {
+        function renderLibraryCarousels() {
             if (!libraryData) return;
+            
+            // Continue Watching
             const watching = libraryData.filter(s => s.type === 'tv' && s.progress > 0 && s.progress < s.total_episodes && s.is_stopped === 0);
-            
-            // Sort by most recently updated if possible. We don't have updated_at, so fallback to sorting by id descending
             watching.sort((a,b) => b.id - a.id); 
-            
             const cwHtml = watching.slice(0, 15).map(s => {
                 const pct = s.total_episodes > 0 ? Math.round((s.progress/s.total_episodes)*100) : 0;
                 return `
@@ -737,11 +746,30 @@
                     </div>
                 `;
             }).join('');
-            
             const contElement = document.getElementById('dash-continue-watching');
-            if (contElement) {
-                contElement.innerHTML = cwHtml || '<p style="color:#666; font-size: 0.9rem;">No shows currently in progress.</p>';
-            }
+            if (contElement) contElement.innerHTML = cwHtml || '<p style="color:#666; font-size: 0.9rem;">No shows currently in progress.</p>';
+
+            // Up Next to Start
+            const upNext = libraryData.filter(s => s.type === 'tv' && s.progress === 0 && s.is_stopped === 0);
+            upNext.sort((a,b) => b.id - a.id);
+            const unHtml = upNext.slice(0, 15).map(s => `
+                <div class="poster-card" onclick="openModal(${s.api_id}, '${s.type}', true, ${s.id})" style="flex: 0 0 140px; min-width: 140px;">
+                    <img src="${s.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                </div>
+            `).join('');
+            const unElement = document.getElementById('dash-up-next');
+            if (unElement) unElement.innerHTML = unHtml || '<p style="color:#666; font-size: 0.9rem;">Your watchlist is empty.</p>';
+
+            // Recent Movies
+            const recentMovies = libraryData.filter(s => s.type === 'movie' && s.progress === 0);
+            recentMovies.sort((a,b) => b.id - a.id);
+            const rmHtml = recentMovies.slice(0, 15).map(s => `
+                <div class="poster-card" onclick="openModal(${s.api_id}, '${s.type}', true, ${s.id})" style="flex: 0 0 140px; min-width: 140px;">
+                    <img src="${s.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                </div>
+            `).join('');
+            const rmElement = document.getElementById('dash-recent-movies');
+            if (rmElement) rmElement.innerHTML = rmHtml || '<p style="color:#666; font-size: 0.9rem;">No unwatched movies in library.</p>';
         }
 
         function renderLibraryGrid() {
@@ -1175,7 +1203,32 @@
             document.getElementById('st-time').innerText = t || '0h';
             document.getElementById('st-eps').innerText = st.episodes;
             
-            const c = document.getElementById('dash-incoming');
+            // Dash Airing Carousels
+            const today = new Date().toISOString().split('T')[0];
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            const nextWeekStr = nextWeek.toISOString().split('T')[0];
+            
+            const airingToday = st.upcoming.filter(e => e.air_date === today);
+            const airingThisWeek = st.upcoming.filter(e => e.air_date > today && e.air_date <= nextWeekStr);
+            
+            const atHtml = airingToday.map(e => `
+                <div class="poster-card" onclick="openModal(${e.api_id}, '${e.type}', true, ${e.id})" style="flex: 0 0 140px; min-width: 140px;">
+                    <img src="${e.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                </div>
+            `).join('');
+            const atElement = document.getElementById('dash-airing-today');
+            if (atElement) atElement.innerHTML = atHtml || '<p style="color:#666; font-size: 0.9rem;">Nothing airing today.</p>';
+
+            const twHtml = airingThisWeek.map(e => `
+                <div class="poster-card" onclick="openModal(${e.api_id}, '${e.type}', true, ${e.id})" style="flex: 0 0 140px; min-width: 140px;">
+                    <img src="${e.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                </div>
+            `).join('');
+            const twElement = document.getElementById('dash-this-week');
+            if (twElement) twElement.innerHTML = twHtml || '<p style="color:#666; font-size: 0.9rem;">Nothing airing this week.</p>';
+
+            // Notifications Incoming Tracker
             c.innerHTML = '';
             
             if(st.upcoming.length === 0) {
@@ -1262,15 +1315,34 @@
             const genreCounts = {};
             let startedShows = 0;
             let completedShows = 0;
+            let completedMovies = 0;
+            let watchlistSize = 0;
+            
+            let mostBingedShowTitle = "None";
+            let mostBingedShowProgress = 0;
             
             lib.forEach(i => {
-                if (i.type === 'tv' && i.progress > 0) {
-                    startedShows++;
-                    if (i.progress >= i.total_episodes && i.total_episodes > 0 && i.status === 'Ended') {
-                        completedShows++;
+                if (i.type === 'tv') {
+                    if (i.progress > 0) {
+                        startedShows++;
+                        if (i.progress >= i.total_episodes && i.total_episodes > 0 && i.status === 'Ended') {
+                            completedShows++;
+                        }
+                    } else {
+                        watchlistSize++;
+                    }
+                    if (i.progress > mostBingedShowProgress) {
+                        mostBingedShowProgress = i.progress;
+                        mostBingedShowTitle = i.title;
                     }
                 }
-                if(i.genre) {
+                
+                if (i.type === 'movie') {
+                    if (i.progress > 0) completedMovies++;
+                    else watchlistSize++;
+                }
+
+                if(i.genre && i.progress > 0) {
                     i.genre.split(',').forEach(g => {
                         const gt = g.trim();
                         if(gt) genreCounts[gt] = (genreCounts[gt] || 0) + 1;
@@ -1305,10 +1377,29 @@
                         <div style="font-size:3.5rem; font-weight:900; color:var(--accent); margin:1rem 0;">${favGenreName}</div>
                     </div>
                 </div>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:2rem;">
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Most Binged Show</h3>
+                        <div style="font-size:1.5rem; font-weight:900; color:white; margin-top:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${mostBingedShowTitle}</div>
+                        <div style="color:var(--accent); font-size:1rem; margin-top:0.5rem;">${mostBingedShowProgress} episodes</div>
+                    </div>
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Watchlist Size</h3>
+                        <div style="font-size:2.5rem; font-weight:900; color:white; margin-top:0.5rem;">${watchlistSize}</div>
+                        <div style="color:var(--accent); font-size:1rem; margin-top:0.5rem;">shows & movies</div>
+                    </div>
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Movies Logged</h3>
+                        <div style="font-size:2.5rem; font-weight:900; color:white; margin-top:0.5rem;">${completedMovies}</div>
+                        <div style="color:var(--accent); font-size:1rem; margin-top:0.5rem;">total</div>
+                    </div>
+                </div>
                 
                 <div style="background:var(--card-bg); padding:2.5rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                    <h2 style="font-size:2.5rem; margin-top:0; color:white; line-height:1.2;">You finish <span style="color:var(--accent);">${completionRate}%</span> of the shows you start.</h2>
-                    <div class="progress-bar-bg" style="height:12px; border-radius:6px; margin: 2rem auto 0; max-width: 400px; background:#222;"><div class="progress-bar-fill" style="width:${completionRate}%; background:var(--accent); border-radius:6px;"></div></div>
+                    <h2 style="font-size:2.5rem; margin-top:0; color:white; line-height:1.2;">The Completionist</h2>
+                    <p style="color:#aaa; font-size:1.2rem; margin-bottom:1rem;">You have completely finished <strong>${completedShows}</strong> TV shows.</p>
+                    <div class="progress-bar-bg" style="height:12px; border-radius:6px; margin: 0 auto; max-width: 400px; background:#222;"><div class="progress-bar-fill" style="width:${completionRate}%; background:var(--accent); border-radius:6px;"></div></div>
                 </div>
             `;
             

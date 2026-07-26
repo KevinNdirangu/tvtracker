@@ -346,7 +346,7 @@ const api = {
             .eq('shows.is_stopped', 0)
             .gte('air_date', today)
             .order('air_date', { ascending: true })
-            .limit(12);
+            .limit(50);
             
         let upcoming = [];
         if (upcomingData) {
