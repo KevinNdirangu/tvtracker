@@ -74,7 +74,15 @@
         .ep-watched .custom-checkbox::after { content: '✓'; color: black; font-weight: bold; font-size: 14px; }
         
         .season-content { padding: 0 1rem; display: none; }
-        .season-content.open { display: block; }        @media (max-width: 768px) {
+        .season-content.open { display: block; }
+        
+        .horizontal-scroller { display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; -webkit-overflow-scrolling:touch; margin-bottom:2rem; }
+        .horizontal-scroller::-webkit-scrollbar { height: 8px; }
+        .horizontal-scroller::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .horizontal-scroller::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .horizontal-scroller::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+
+        @media (max-width: 768px) {
             header { padding: calc(env(safe-area-inset-top, 1rem) + 20px) 1rem 1rem 1rem; flex-direction: column; gap: 0; align-items: stretch; border-bottom: none; background: var(--bg-color); backdrop-filter: none; }
             header h1 { display: none; }
             .search-box { width: 100%; box-sizing: border-box; background: #1c1c1e; padding: 0.8rem 1rem; }
@@ -159,20 +167,20 @@
     <div id="tab-dashboard" class="tab-content active">
         <h2 id="dash-greeting" style="margin-top:0; margin-bottom:2rem; font-size: 2.2rem;">Welcome, <span style="color:var(--accent);">Kevin</span>!</h2>
         
-        <h3 style="margin: 0; margin-bottom: 1rem;">Continue Watching</h3>
-        <div id="dash-continue-watching" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+        <h3 style="margin-top: 0;">Continue Watching</h3>
+        <div id="dash-continue-watching" class="horizontal-scroller"></div>
 
-        <h3 style="margin: 0; margin-bottom: 1rem;">Up Next to Start</h3>
-        <div id="dash-up-next" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+        <h3 style="margin-top: 0;">Up Next to Start</h3>
+        <div id="dash-up-next" class="horizontal-scroller"></div>
 
-        <h3 style="margin: 0; margin-bottom: 1rem;">Airing Today</h3>
-        <div id="dash-airing-today" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+        <h3 style="margin-top: 0;">Airing Today</h3>
+        <div id="dash-airing-today" class="horizontal-scroller"></div>
 
-        <h3 style="margin: 0; margin-bottom: 1rem;">New Episodes This Week</h3>
-        <div id="dash-this-week" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+        <h3 style="margin-top: 0;">New Episodes This Week</h3>
+        <div id="dash-this-week" class="horizontal-scroller"></div>
 
-        <h3 style="margin: 0; margin-bottom: 1rem;">Recently Released Movies</h3>
-        <div id="dash-recent-movies" class="horizontal-scroller" style="display:flex; overflow-x:auto; gap:1rem; padding-bottom:1rem; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:2rem;"></div>
+        <h3 style="margin-top: 0;">Recently Released Movies</h3>
+        <div id="dash-recent-movies" class="horizontal-scroller"></div>
 
         <h3 style="margin: 0; margin-bottom: 1rem;">Your Stats</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
@@ -1212,8 +1220,11 @@
             document.getElementById('st-eps').innerText = st.episodes;
             
             // Dash Airing Carousels
-            const today = new Date().toISOString().split('T')[0];
-            const nextWeek = new Date();
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            const today = now.toISOString().split('T')[0];
+            
+            const nextWeek = new Date(now);
             nextWeek.setDate(nextWeek.getDate() + 7);
             const nextWeekStr = nextWeek.toISOString().split('T')[0];
             
@@ -1245,7 +1256,9 @@
             } else {
                 let htmlStr = '';
                 let airingToday = null;
-                const todayStr = new Date().toISOString().split('T')[0];
+                const dNow = new Date();
+                dNow.setMinutes(dNow.getMinutes() - dNow.getTimezoneOffset());
+                const todayStr = dNow.toISOString().split('T')[0];
 
                 st.upcoming.forEach(ep => {
                     if (ep.air_date === todayStr) airingToday = ep;
