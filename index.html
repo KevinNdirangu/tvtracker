@@ -74,7 +74,7 @@
         
         .season-content { padding: 0 1rem; display: none; }
         .season-content.open { display: block; }        @media (max-width: 768px) {
-            header { padding: env(safe-area-inset-top, 1rem) 1rem 1rem 1rem; flex-direction: column; gap: 0; align-items: stretch; border-bottom: none; background: var(--bg-color); backdrop-filter: none; }
+            header { padding: calc(env(safe-area-inset-top, 1rem) + 20px) 1rem 1rem 1rem; flex-direction: column; gap: 0; align-items: stretch; border-bottom: none; background: var(--bg-color); backdrop-filter: none; }
             header h1 { display: none; }
             .search-box { width: 100%; box-sizing: border-box; background: #1c1c1e; padding: 0.8rem 1rem; }
             
@@ -83,7 +83,7 @@
                 background: rgba(28,28,30,0.85); backdrop-filter: blur(10px); 
                 border-top: 1px solid #333; z-index: 200; 
                 display: flex; justify-content: space-around; gap: 0; padding: 0.8rem 0; 
-                padding-bottom: env(safe-area-inset-bottom, 0.8rem);
+                padding-bottom: calc(env(safe-area-inset-bottom, 0.8rem) + 1.2rem);
             }
             .tab-btn { flex: 1; padding: 0; }
             .tab-btn span { display: none; }
@@ -112,6 +112,7 @@
     </style>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="icon.jpg">
