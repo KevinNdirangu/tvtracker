@@ -113,9 +113,9 @@
             .modal-close { top: 1rem; right: 1rem; z-index: 10; font-size: 2rem; background: rgba(0,0,0,0.6); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1; }
             #m-poster { width: 140px !important; margin: 0 auto; display: block; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
             .modal-content > div:nth-child(2) { flex-direction: column !important; gap: 1.2rem !important; align-items: center; text-align: center; margin-bottom: 1.5rem !important; }
-            #m-title { font-size: 1.6rem !important; margin-bottom: 0.2rem; }
-            #m-actions { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
-            .btn-action, .btn-delete { flex: 1 1 45%; max-width: 200px; padding: 0.8rem 0.5rem; font-size: 0.9rem; }
+            #m-title { font-size: 1.6rem !important; margin-bottom: 0.2rem; word-break: break-word; line-height: 1.2; }
+            #m-actions { flex-direction: column; width: 100%; gap: 0.8rem; }
+            .btn-action, .btn-delete { width: 100%; box-sizing: border-box; max-width: none; padding: 0.9rem; font-size: 1rem; }
             
             #gcal-actions { flex-direction: column; }
         }
@@ -350,15 +350,17 @@
                         Cloud Calendar Subscription
                     </h4>
                     <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom:0.5rem;">Copy this URL into Google Calendar or Apple Calendar using the "Add from URL" option. This feed auto-updates directly from your cloud database.</div>
-                    <input type="text" id="cloud-cal-url" readonly style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; background:#111; border:1px solid #333; color:#34c759; border-radius:4px; font-family:monospace;" value="Loading...">
-                </div>
-                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button class="btn-action" style="flex-grow:1; background: #333; color: white;" onclick="copyCalUrl()">Copy URL</button>
+                    <div id="gcal-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <input type="text" id="cloud-cal-url" readonly style="flex-grow:1; background:#222; color:white; border:1px solid #444; border-radius:8px; padding:0.5rem;" value="...">
+                    <button class="btn-action" style="flex-grow:1; max-width:120px;" onclick="copyCalUrl()">Copy URL</button>
                     <button class="btn-action" style="flex-grow:1; background: #34c759; color: black; font-weight: bold;" onclick="subscribeGoogleCal()">Subscribe in Google Calendar</button>
+                    <button class="btn-action" style="flex-grow:1; background: #0a84ff; color: white; font-weight: bold;" onclick="window.open('/api/calendar', '_blank')">Download .ics</button>
                 </div>
                 <script>
                     document.addEventListener('DOMContentLoaded', () => {
-                        document.getElementById('cloud-cal-url').value = window.location.origin + '/api/calendar';
+                        let base = window.location.origin;
+                        if(base === 'null' || base.includes('file://')) base = 'http://localhost:3000';
+                        document.getElementById('cloud-cal-url').value = base + '/api/calendar';
                     });
                     function copyCalUrl() {
                         const url = document.getElementById('cloud-cal-url').value;
@@ -366,7 +368,14 @@
                         alert('URL Copied! Add this to your calendar app.');
                     }
                     function subscribeGoogleCal() {
-                        const url = document.getElementById('cloud-cal-url').value;
+                        let url = document.getElementById('cloud-cal-url').value;
+                        if(url.includes('localhost') || url.includes('127.0.0.1')) {
+                            alert('Google Calendar subscription requires a PUBLIC URL. Since you are running this locally, Google cannot reach your computer.\n\nPlease deploy your app (e.g., to Vercel) to use the subscription feature, or use "Download .ics" instead to manually import it.');
+                            return;
+                        }
+                        // Append a dummy parameter to help Google Calendar identify it as a valid file
+                        if(!url.includes('?')) url += '?ext=.ics';
+                        url = url.replace('https://', 'webcal://').replace('http://', 'webcal://');
                         window.open('https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(url), '_blank');
                     }
                 </script>
