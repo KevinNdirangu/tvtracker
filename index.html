@@ -1105,7 +1105,7 @@
                             if(hasAired || ep.is_watched) {
                                 epsHtml += `
                                     <div class="ep-row ${ep.is_watched ? 'ep-watched':''}" 
-                                         onclick="toggleEp(${ep.id}, ${ep.is_watched}, ${tmdbId}, '${type}', ${localDbId})"
+                                         onclick="toggleEp(event, this, ${ep.id})"
                                          oncontextmenu="event.preventDefault(); markUpTo(${ep.id}, ${s.id}, ${sNum}, ${ep.episode_number}, ${tmdbId}, '${type}', ${localDbId})">
                                         <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
                                         <div class="custom-checkbox"></div>
@@ -1176,10 +1176,17 @@
             }
         }
 
-        async function toggleEp(epId, isWatched, tmdbId, type, localDbId) {
-            if(isWatched) await ipcRenderer.invoke('unlog-episode', epId);
-            else await ipcRenderer.invoke('log-episode', epId);
-            openModal(tmdbId, type, true, localDbId);
+        async function toggleEp(event, el, epId) {
+            if(event) event.stopPropagation();
+            const isWatched = el.classList.contains('ep-watched');
+            
+            if(isWatched) {
+                el.classList.remove('ep-watched');
+                ipcRenderer.invoke('unlog-episode', epId);
+            } else {
+                el.classList.add('ep-watched');
+                ipcRenderer.invoke('log-episode', epId);
+            }
         }
 
         async function markUpTo(epId, showId, seasonNum, epNum, tmdbId, type, localDbId) {
