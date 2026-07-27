@@ -182,7 +182,15 @@ const api = {
 
     async getShowDetails(localId) {
         const { data: show } = await supabaseClient.from('shows').select('*').eq('id', localId).single();
-        const { data: episodes } = await supabaseClient.from('episodes').select('*, watch_history(id, watched_at)').eq('show_id', localId);
+        let { data: episodes } = await supabaseClient.from('episodes').select('*, watch_history(id, watched_at)').eq('show_id', localId);
+        
+        // Self-heal missing episodes (fixes bug where shows were added but episode insertion failed)
+        if (!episodes || episodes.length === 0) {
+            console.log("Healing missing episodes for", show.title);
+            await this.addMedia(show.api_id, show.type, false);
+            const { data: newEps } = await supabaseClient.from('episodes').select('*, watch_history(id, watched_at)').eq('show_id', localId);
+            if (newEps) episodes = newEps;
+        }
         
         const processedEps = episodes.map(ep => ({
             ...ep,
@@ -282,6 +290,14 @@ const api = {
         });
         
         if (newEps.length > 0) {
+            // Fetch max episode ID to bypass broken sequence
+            const { data: maxEpIdData } = await supabaseClient.from('episodes').select('id').order('id', { ascending: false }).limit(1).maybeSingle();
+            let nextEpId = (maxEpIdData ? maxEpIdData.id : 0) + 1;
+            
+            for (let i = 0; i < newEps.length; i++) {
+                newEps[i].id = nextEpId++;
+            }
+
             // Chunk episode inserts to avoid payload limits
             for (let i = 0; i < newEps.length; i += 500) {
                 const { error: epError } = await supabaseClient.from('episodes').insert(newEps.slice(i, i + 500));
