@@ -108,13 +108,14 @@
             #tab-dashboard > div:first-of-type { grid-template-columns: 1fr !important; gap: 0.5rem !important; }
             h3 + div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
             
-            .modal-content { padding: 1rem; padding-top: 2rem; height: 95vh; }
-            .modal-close { top: 0.5rem; right: 0.5rem; z-index: 10; font-size: 2rem; background: rgba(0,0,0,0.5); width: 40px; height: 40px; border-radius: 50%; }
-            #m-poster { width: 110px !important; margin: 0 auto; display: block; }
-            .modal-content > div:nth-child(2) { flex-direction: column !important; gap: 1rem !important; align-items: center; text-align: center; margin-bottom: 1rem !important; }
-            #m-title { font-size: 1.4rem !important; }
-            #m-actions { flex-direction: column; width: 100%; }
-            .btn-action, .btn-delete { width: 100%; box-sizing: border-box; }
+            .modal-content { height: 92vh; max-height: none; width: 100%; margin: 0; position: absolute; bottom: 0; border-radius: 24px 24px 0 0; padding: 1.5rem; padding-top: 2rem; animation: slideUp 0.3s ease-out; }
+            @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+            .modal-close { top: 1rem; right: 1rem; z-index: 10; font-size: 2rem; background: rgba(0,0,0,0.6); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1; }
+            #m-poster { width: 140px !important; margin: 0 auto; display: block; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+            .modal-content > div:nth-child(2) { flex-direction: column !important; gap: 1.2rem !important; align-items: center; text-align: center; margin-bottom: 1.5rem !important; }
+            #m-title { font-size: 1.6rem !important; margin-bottom: 0.2rem; }
+            #m-actions { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+            .btn-action, .btn-delete { flex: 1 1 45%; max-width: 200px; padding: 0.8rem 0.5rem; font-size: 0.9rem; }
             
             #gcal-actions { flex-direction: column; }
         }
@@ -225,6 +226,28 @@
 
     <!-- DISCOVER / SEARCH -->
     <div id="tab-discover" class="tab-content">
+        <div class="sub-nav" style="align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.8rem;">
+            <button class="sub-btn active" onclick="setDiscoverType('all', this)">All</button>
+            <button class="sub-btn" onclick="setDiscoverType('movie', this)">Movies</button>
+            <button class="sub-btn" onclick="setDiscoverType('tv', this)">TV Shows</button>
+            <button class="sub-btn" onclick="setDiscoverType('anime', this)">Anime</button>
+            <div style="flex-grow: 1;"></div>
+            <select id="discoverGenreSelect" onchange="loadDiscover(1, false)" style="background:var(--card-bg); color:white; border:1px solid #333; border-radius:8px; padding:0.4rem; outline:none; max-width: 150px;">
+                <option value="all">All Genres</option>
+                <option value="action">Action & Adventure</option>
+                <option value="animation">Animation</option>
+                <option value="comedy">Comedy</option>
+                <option value="crime">Crime</option>
+                <option value="documentary">Documentary</option>
+                <option value="drama">Drama</option>
+                <option value="family">Family</option>
+                <option value="fantasy">Fantasy / Sci-Fi</option>
+                <option value="horror">Horror</option>
+                <option value="mystery">Mystery</option>
+                <option value="romance">Romance</option>
+                <option value="thriller">Thriller</option>
+            </select>
+        </div>
         <h2 id="discover-title">Trending This Week</h2>
         <div class="show-grid" id="grid-discover"></div>
     </div>
@@ -558,15 +581,30 @@
             renderDiscoverGrid(res, append);
         }
 
+        let currentDiscoverType = 'all';
+        function setDiscoverType(type, btn) {
+            document.querySelectorAll('#tab-discover .sub-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentDiscoverType = type;
+            loadDiscover(1, false);
+        }
+
         async function loadDiscover(page = 1, append = false) {
             if(document.getElementById('searchInput').value && !append) return; // Keep search active if typed
             
-            if(!append) document.getElementById('discover-title').innerText = "Trending This Week";
+            const genreSelect = document.getElementById('discoverGenreSelect');
+            const genre = genreSelect.value;
+            
+            if(!append) {
+                let title = "Trending This Week";
+                if(genre !== 'all') title = "Discover: " + genreSelect.options[genreSelect.selectedIndex].text;
+                document.getElementById('discover-title').innerText = title;
+            }
             
             currentDiscoverPage = page;
             isDiscoverSearch = false;
             
-            const res = await ipcRenderer.invoke('get-trending', 'all', page);
+            const res = await ipcRenderer.invoke('get-trending', currentDiscoverType, page, genre);
             renderDiscoverGrid(res, append);
         }
         
@@ -1529,6 +1567,17 @@
         
         loadDiscover();
         loadLibrary();
+        
+        // Horizontal scroll on wheel for scrollers
+        document.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                const scroller = e.target.closest('.horizontal-scroller');
+                if (scroller) {
+                    e.preventDefault();
+                    scroller.scrollLeft += e.deltaY;
+                }
+            }
+        }, { passive: false });
     </script>
 </body>
 </html>

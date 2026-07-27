@@ -40,10 +40,61 @@ const api = {
         return data.map(d => d.api_id);
     },
 
-    async getTrending(type = 'all', page = 1) {
-        const res = await fetch(`https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_KEY}&page=${page}`);
-        const data = await res.json();
-        return data.results;
+    async getTrending(type = 'all', page = 1, genre = 'all') {
+        if (genre === 'all') {
+            if (type === 'anime') {
+                const res = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_KEY}&with_genres=16&with_original_language=ja&page=${page}`);
+                const data = await res.json();
+                return data.results;
+            } else {
+                const res = await fetch(`https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_KEY}&page=${page}`);
+                const data = await res.json();
+                return data.results;
+            }
+        }
+        
+        const gMap = {
+            'action': { movie: 28, tv: 10759 },
+            'animation': { movie: 16, tv: 16 },
+            'comedy': { movie: 35, tv: 35 },
+            'crime': { movie: 80, tv: 80 },
+            'documentary': { movie: 99, tv: 99 },
+            'drama': { movie: 18, tv: 18 },
+            'family': { movie: 10751, tv: 10751 },
+            'fantasy': { movie: '14,878', tv: 10765 },
+            'horror': { movie: 27, tv: 27 },
+            'mystery': { movie: 9648, tv: 9648 },
+            'romance': { movie: 10749, tv: 18 },
+            'thriller': { movie: 53, tv: 9648 }
+        };
+        
+        const g = gMap[genre];
+        if (!g) return [];
+        
+        if (type === 'all') {
+            const [mRes, tRes] = await Promise.all([
+                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_KEY}&with_genres=${g.movie}&page=${page}`),
+                fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_KEY}&with_genres=${g.tv}&page=${page}`)
+            ]);
+            const mData = await mRes.json();
+            const tData = await tRes.json();
+            const results = [];
+            const len = Math.max((mData.results || []).length, (tData.results || []).length);
+            for (let i = 0; i < len; i++) {
+                if (mData.results && mData.results[i]) results.push(mData.results[i]);
+                if (tData.results && tData.results[i]) results.push(tData.results[i]);
+            }
+            return results;
+        } else if (type === 'anime') {
+            const res = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_KEY}&with_genres=16,${g.tv}&with_original_language=ja&page=${page}`);
+            const data = await res.json();
+            return data.results;
+        } else {
+            const gid = type === 'movie' ? g.movie : g.tv;
+            const res = await fetch(`https://api.themoviedb.org/3/discover/${type}?api_key=${TMDB_KEY}&with_genres=${gid}&page=${page}`);
+            const data = await res.json();
+            return data.results;
+        }
     },
 
     async searchTmdb(query, page = 1) {
