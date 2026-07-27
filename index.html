@@ -1182,12 +1182,16 @@
             if(!el) return;
             const isWatched = el.classList.contains('ep-watched');
             
-            if(isWatched) {
-                el.classList.remove('ep-watched');
-                await ipcRenderer.invoke('unlog-episode', epId);
-            } else {
-                el.classList.add('ep-watched');
-                await ipcRenderer.invoke('log-episode', epId);
+            try {
+                if(isWatched) {
+                    el.classList.remove('ep-watched');
+                    await ipcRenderer.invoke('unlog-episode', epId);
+                } else {
+                    el.classList.add('ep-watched');
+                    await ipcRenderer.invoke('log-episode', epId);
+                }
+            } catch (e) {
+                alert('Error toggling episode: ' + e.message);
             }
         }
 

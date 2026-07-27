@@ -248,6 +248,11 @@ const api = {
         return true;
     },
 
+    async getNextId(tableName) {
+        const { data } = await supabaseClient.from(tableName).select('id').order('id', { ascending: false }).limit(1).maybeSingle();
+        return (data ? data.id : 0) + 1;
+    },
+
     async removeShow(id) {
         await supabaseClient.from('shows').delete().eq('id', id);
         return true;
@@ -260,7 +265,12 @@ const api = {
     async logEpisode(epId) {
         const { data: existing } = await supabaseClient.from('watch_history').select('id').eq('episode_id', epId).single();
         if(!existing) {
-            await supabaseClient.from('watch_history').insert({ episode_id: epId });
+            for(let attempt=0; attempt<10; attempt++) {
+                const nextId = await this.getNextId('watch_history') + attempt;
+                const { error } = await supabaseClient.from('watch_history').insert({ id: nextId, episode_id: epId });
+                if (!error) break;
+                if (error.code !== '23505') break; // If not duplicate key, stop retrying
+            }
         }
     },
 
@@ -411,6 +421,8 @@ const api = {
         if (!eps) return;
         const toInsert = eps.filter(e => e.air_date && new Date(e.air_date) <= new Date() && (!e.watch_history || e.watch_history.length === 0)).map(e => ({ episode_id: e.id }));
         if(toInsert.length > 0) {
+            let nextId = await this.getNextId('watch_history');
+            for(let i=0; i<toInsert.length; i++) toInsert[i].id = nextId + i;
             for(let i=0; i<toInsert.length; i+=500) await supabaseClient.from('watch_history').insert(toInsert.slice(i, i+500));
         }
     },
@@ -425,6 +437,8 @@ const api = {
             return hasAired && isBeforeOrEq && isUnwatched;
         }).map(e => ({ episode_id: e.id }));
         if(toInsert.length > 0) {
+            let nextId = await this.getNextId('watch_history');
+            for(let i=0; i<toInsert.length; i++) toInsert[i].id = nextId + i;
             for(let i=0; i<toInsert.length; i+=500) await supabaseClient.from('watch_history').insert(toInsert.slice(i, i+500));
         }
     }
