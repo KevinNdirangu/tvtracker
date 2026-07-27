@@ -56,18 +56,17 @@
         
         .season-header { display: flex; justify-content: space-between; align-items: center; background: #2c2c2e; padding: 0.75rem 1rem; margin-top: 1.5rem; border-radius: 8px; }
         .ep-row { display: flex; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid #333; }
-        .ep-watched { opacity: 0.5; text-decoration: line-through; }
+        .ep-watched { opacity: 0.6; }
         
         .btn-action { background: var(--accent); color: black; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; cursor: pointer; }
         .btn-delete { background: #ff3b30; color: white; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-weight: bold; cursor: pointer; }
         
         .stat-card { background: #111; padding: 1.5rem; border-radius: 12px; text-align: center; border: 1px solid #333; }
         
-        .season-header { display: flex; justify-content: space-between; align-items: center; background: #2c2c2e; padding: 0.75rem 1rem; margin-top: 1rem; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
-        .season-header:hover { background: #3a3a3c; }
-        .ep-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0.5rem; border-bottom: 1px solid #333; cursor: pointer; transition: background 0.2s; border-radius: 6px; }
-        .ep-row:hover { background: #222; }
-        .ep-watched { opacity: 0.4; text-decoration: line-through; }
+        .season-header { cursor: pointer; padding: 1rem; background: #222; border-radius: 8px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .ep-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; cursor: pointer; align-items: center; border-radius: 8px; transition: background 0.2s; }
+        .ep-row:hover { background: #333; }
+        .ep-watched { opacity: 0.6; }
         
         .custom-checkbox { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .ep-watched .custom-checkbox { background: var(--accent); }
