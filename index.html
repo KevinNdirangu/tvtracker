@@ -126,6 +126,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="icon.jpg">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -415,9 +416,14 @@
 
     <!-- STATISTICS -->
     <div id="tab-stats" class="tab-content" style="padding: 2rem; max-width:1200px; margin:auto;">
-        <h1 style="margin-top:0; font-size:3rem; text-align:center;">Your TV Story</h1>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem; flex-wrap:wrap; gap:10px;">
+            <h1 style="margin:0; font-size:3rem;">Your TV Story</h1>
+            <select id="statsYearFilter" onchange="renderStatsUI()" style="background:var(--card-bg); color:white; border:1px solid #333; padding:10px 15px; border-radius:12px; outline:none; font-size:1rem; cursor:pointer;">
+                <option value="all">All Time</option>
+            </select>
+        </div>
         
-        <div id="stats-story-container" style="display:flex; flex-direction:column; gap:2rem; margin-top:3rem;">
+        <div id="stats-story-container" style="display:flex; flex-direction:column; gap:2rem; margin-top:1rem;">
             <div style="color:#aaa; text-align:center; font-size:1.2rem;">Loading your analytics...</div>
         </div>
     </div>
@@ -1628,181 +1634,319 @@
             }
         }
 
+        let cachedStatsData = null;
+        let statsChart = null;
+
         async function loadStats() {
-            const st = await ipcRenderer.invoke('get-stats');
-            if(!st) return;
+            if (cachedStatsData) {
+                renderStatsUI();
+            }
             
-            const lib = await ipcRenderer.invoke('get-library');
-            const genreCounts = {};
-            let startedShows = 0;
-            let completedShows = 0;
-            let completedMovies = 0;
-            let watchlistSize = 0;
+            const [st, lib] = await Promise.all([
+                ipcRenderer.invoke('get-stats'),
+                ipcRenderer.invoke('get-library')
+            ]);
             
-            let mostBingedShowTitle = "None";
-            let mostBingedShowProgress = 0;
-            let movieMinutes = 0;
+            if(!st || !lib) return;
             
-            lib.forEach(i => {
-                if (i.type === 'tv') {
-                    if (i.watchedEpisodes > 0) {
-                        startedShows++;
-                        if (i.watchedEpisodes >= i.totalEpisodes && i.totalEpisodes > 0 && i.status === 'Ended') {
-                            completedShows++;
-                        }
+            cachedStatsData = { st, lib };
+            
+            // Populate Year Filter options based on watch history
+            const years = new Set();
+            st.history.forEach(h => {
+                if (h.watched_at) {
+                    const y = h.watched_at.split('-')[0];
+                    if (y) years.add(y);
+                }
+            });
+            const sortedYears = Array.from(years).sort((a,b) => b - a);
+            const select = document.getElementById('statsYearFilter');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="all">All Time</option>';
+            sortedYears.forEach(y => {
+                select.innerHTML += `<option value="${y}">${y}</option>`;
+            });
+            if (sortedYears.includes(currentVal)) select.value = currentVal;
+            
+            renderStatsUI();
+        }
+
+        function renderStatsUI() {
+            if (!cachedStatsData) return;
+            const { st, lib } = cachedStatsData;
+            const yearFilter = document.getElementById('statsYearFilter').value;
+            
+            // Filter history by year
+            let filteredHistory = st.history;
+            if (yearFilter !== 'all') {
+                filteredHistory = st.history.filter(h => h.watched_at && h.watched_at.startsWith(yearFilter));
+            }
+            
+            const epMap = new Map();
+            st.episodes.forEach(e => epMap.set(e.id, e));
+            
+            // Build metrics
+            let totalMins = 0;
+            let tvEpisodesWatched = 0;
+            let moviesWatched = 0;
+            
+            const showWatchCounts = {}; // show_id -> episodes watched
+            const movieWatchCounts = {}; // show_id -> times watched
+            const releaseYears = {}; // year -> count
+            const monthlyCounts = {}; // YYYY-MM or YYYY -> count
+            
+            filteredHistory.forEach(h => {
+                const ep = epMap.get(h.episode_id);
+                if (ep) {
+                    totalMins += (ep.runtime || 45);
+                    const isMovie = lib.find(l => l.id === ep.show_id)?.type === 'movie';
+                    
+                    if (isMovie) {
+                        moviesWatched++;
+                        movieWatchCounts[ep.show_id] = (movieWatchCounts[ep.show_id] || 0) + 1;
                     } else {
-                        watchlistSize++;
+                        tvEpisodesWatched++;
+                        showWatchCounts[ep.show_id] = (showWatchCounts[ep.show_id] || 0) + 1;
                     }
-                    if (i.watchedEpisodes > mostBingedShowProgress) {
-                        mostBingedShowProgress = i.watchedEpisodes;
-                        mostBingedShowTitle = i.title;
+                    
+                    if (ep.air_date) {
+                        const y = ep.air_date.split('-')[0];
+                        if (y && !isNaN(y)) releaseYears[y] = (releaseYears[y] || 0) + 1;
                     }
+                } else {
+                    totalMins += 45;
                 }
                 
-                if (i.type === 'movie') {
-                    if (i.watchedEpisodes > 0) {
-                        completedMovies++;
-                        movieMinutes += (i.runtime || 120);
-                    }
-                    else watchlistSize++;
-                }
-
-                if(i.genre && i.watchedEpisodes > 0) {
-                    i.genre.split(',').forEach(g => {
-                        const gt = g.trim();
-                        if(gt) genreCounts[gt] = (genreCounts[gt] || 0) + 1;
-                    });
+                if (h.watched_at) {
+                    const month = h.watched_at.slice(0, 7);
+                    const year = h.watched_at.slice(0, 4);
+                    const key = yearFilter === 'all' ? year : month;
+                    monthlyCounts[key] = (monthlyCounts[key] || 0) + 1;
                 }
             });
             
-            const tvMinutes = Math.max(0, st.total_minutes - movieMinutes);
-            const completionRate = startedShows > 0 ? Math.round((completedShows / startedShows) * 100) : 0;
+            // Progress Calculation
+            let tvSeen = 0, tvWatching = 0, tvNotStarted = 0;
+            let moviesSeen = 0, moviesNotStarted = 0;
+            let droppedShows = 0;
+            const genreCounts = {};
             
-            // Format Time
-            const formatTime = (mins) => {
-                return {
-                    mo: Math.floor(mins / 43200),
-                    d: Math.floor((mins % 43200) / 1440),
-                    h: Math.floor((mins % 1440) / 60),
-                    m: Math.floor(mins % 60)
-                };
-            };
-            const totalT = formatTime(st.total_minutes);
+            lib.forEach(i => {
+                if (i.type === 'tv') {
+                    if (i.is_stopped === 1) droppedShows++;
+                    const watchedInPeriod = yearFilter === 'all' ? i.watchedEpisodes : (showWatchCounts[i.id] || 0);
+                    
+                    if (watchedInPeriod > 0) {
+                        if (i.watchedEpisodes >= i.totalEpisodes && i.totalEpisodes > 0 && i.status === 'Ended') {
+                            tvSeen++;
+                        } else {
+                            tvWatching++;
+                        }
+                    } else {
+                        tvNotStarted++;
+                    }
+                    
+                    if (watchedInPeriod > 0 && i.genre) {
+                        i.genre.split(',').forEach(g => {
+                            const gt = g.trim();
+                            if(gt) genreCounts[gt] = (genreCounts[gt] || 0) + 1;
+                        });
+                    }
+                } else {
+                    const watchedInPeriod = yearFilter === 'all' ? i.watchedEpisodes : (movieWatchCounts[i.id] || 0);
+                    if (watchedInPeriod > 0) moviesSeen++;
+                    else moviesNotStarted++;
+                    
+                    if (watchedInPeriod > 0 && i.genre) {
+                        i.genre.split(',').forEach(g => {
+                            const gt = g.trim();
+                            if(gt) genreCounts[gt] = (genreCounts[gt] || 0) + 1;
+                        });
+                    }
+                }
+            });
             
-            // Badges
-            let badges = [];
-            if (st.total_minutes > 525600) badges.push({ icon: '⏳', name: 'Time Lord', desc: '1 Year+ Watch Time' });
-            if (completedMovies >= 50) badges.push({ icon: '🍿', name: 'Cinephile', desc: '50+ Movies' });
-            if (completedShows >= 10) badges.push({ icon: '🏆', name: 'Completionist', desc: '10+ Shows Finished' });
-            if (startedShows > 0 && completionRate >= 90) badges.push({ icon: '🎯', name: 'Sharpshooter', desc: '>90% Completion Rate' });
-            if (st.episodes > 1000) badges.push({ icon: '🔥', name: 'Serial Binger', desc: '1,000+ Episodes' });
+            const totalTv = tvSeen + tvWatching + tvNotStarted;
+            const totalMovies = moviesSeen + moviesNotStarted;
+            const tvSeenPct = totalTv > 0 ? (tvSeen / totalTv) * 100 : 0;
+            const tvWatchPct = totalTv > 0 ? (tvWatching / totalTv) * 100 : 0;
+            const tvNotPct = totalTv > 0 ? (tvNotStarted / totalTv) * 100 : 0;
             
-            const badgesHtml = badges.length > 0 ? badges.map(b => `
-                <div style="background:var(--bg); border:1px solid #333; padding:1rem; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
-                    <div style="font-size:2.5rem; margin-bottom:0.5rem;">${b.icon}</div>
-                    <div style="font-weight:bold; font-size:1rem; color:var(--text);">${b.name}</div>
-                    <div style="font-size:0.75rem; color:#aaa; margin-top:0.25rem;">${b.desc}</div>
-                </div>
-            `).join('') : '<p style="color:#666; font-size:0.9rem;">Keep watching to unlock achievements!</p>';
+            const movSeenPct = totalMovies > 0 ? (moviesSeen / totalMovies) * 100 : 0;
+            const movNotPct = totalMovies > 0 ? (moviesNotStarted / totalMovies) * 100 : 0;
 
-            // Top Genres
-            const sortedGenres = Object.entries(genreCounts).sort((a,b) => b[1] - a[1]);
-            const topGenres = sortedGenres.slice(0, 3);
+            // Top Lists
+            const topShows = lib
+                .filter(i => i.type === 'tv' && (yearFilter === 'all' ? i.watchedEpisodes : showWatchCounts[i.id]) > 0)
+                .map(i => ({ title: i.title, count: yearFilter === 'all' ? i.watchedEpisodes : showWatchCounts[i.id] }))
+                .sort((a,b) => b.count - a.count)
+                .slice(0, 10);
+                
+            const topGenres = Object.entries(genreCounts).sort((a,b) => b[1] - a[1]).slice(0, 10);
+            const topYears = Object.entries(releaseYears).sort((a,b) => b[1] - a[1]).slice(0, 5);
+            
+            const mo = Math.floor(totalMins / 43200);
+            const d = Math.floor((totalMins % 43200) / 1440);
+            const h = Math.floor((totalMins % 1440) / 60);
+            const m = Math.floor(totalMins % 60);
+            
+            // Build Graph Data
+            const graphLabels = Object.keys(monthlyCounts).sort();
+            const graphData = graphLabels.map(k => monthlyCounts[k]);
+
             const maxGenreVal = topGenres.length > 0 ? topGenres[0][1] : 1;
-            const genresHtml = topGenres.map(g => `
-                <div style="margin-bottom:1rem;">
-                    <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:0.25rem;">
-                        <span style="color:white;">${g[0]}</span>
-                        <span style="color:var(--accent); font-weight:bold;">${g[1]} entries</span>
+            const genresHtml = topGenres.map((g, idx) => `
+                <div style="margin-bottom:0.8rem; display:flex; align-items:center; gap:10px;">
+                    <div style="width:24px; color:#aaa; font-weight:bold;">${idx+1}.</div>
+                    <div style="flex-grow:1;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:0.25rem;">
+                            <span style="color:white;">${g[0]}</span>
+                            <span style="color:var(--accent); font-weight:bold;">${g[1]} entries</span>
+                        </div>
+                        <div class="progress-bar-bg" style="height:6px; margin:0;"><div class="progress-bar-fill" style="width:${(g[1]/maxGenreVal)*100}%; background:var(--accent);"></div></div>
                     </div>
-                    <div class="progress-bar-bg" style="height:8px; border-radius:4px; margin:0;"><div class="progress-bar-fill" style="width:${(g[1]/maxGenreVal)*100}%; background:var(--accent); border-radius:4px;"></div></div>
+                </div>
+            `).join('');
+
+            const showsHtml = topShows.map((s, idx) => `
+                <div style="display:flex; justify-content:space-between; padding: 0.5rem 0; border-bottom:1px solid #222;">
+                    <div style="display:flex; gap:10px; color:white;">
+                        <span style="color:#aaa; font-weight:bold; width:20px;">${idx+1}.</span>
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">${s.title}</span>
+                    </div>
+                    <span style="color:var(--accent); font-weight:bold;">${s.count} eps</span>
+                </div>
+            `).join('');
+            
+            const yearsHtml = topYears.map((y, idx) => `
+                <div style="display:flex; justify-content:space-between; padding: 0.5rem 0; border-bottom:1px solid #222;">
+                    <div style="display:flex; gap:10px; color:white;">
+                        <span style="color:#aaa; font-weight:bold; width:20px;">${idx+1}.</span>
+                        <span>${y[0]}</span>
+                    </div>
+                    <span style="color:var(--accent); font-weight:bold;">${y[1]} items</span>
                 </div>
             `).join('');
 
             const storyHtml = `
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem;">
-                    <h2 style="font-size:2rem; margin:0; color:white; line-height:1;">Lifetime Watch Time</h2>
-                    <div style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${st.total_minutes.toLocaleString()} mins</div>
+                    <h2 style="font-size:2rem; margin:0; color:white; line-height:1;">Watch Time</h2>
+                    <div style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${totalMins.toLocaleString()} mins</div>
                 </div>
                 
                 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; margin-bottom:2rem;">
                     <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.mo}</div>
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${mo}</div>
                         <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Months</div>
                     </div>
                     <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.d}</div>
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${d}</div>
                         <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Days</div>
                     </div>
                     <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.h}</div>
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${h}</div>
                         <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Hours</div>
                     </div>
                     <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${totalT.m}</div>
+                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${m}</div>
                         <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Mins</div>
                     </div>
                 </div>
+                
+                <!-- Watch History Graph -->
+                <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; margin-bottom:2rem;">
+                    <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1rem;">Watch History (${yearFilter === 'all' ? 'By Year' : 'By Month'})</h3>
+                    <div style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="statsChartCanvas"></canvas>
+                    </div>
+                </div>
 
+                <!-- Progress Section -->
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem; margin-bottom:2rem;">
                     <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">TV Shows</h3>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #222;">
-                            <span style="color:white; font-size:1.2rem;">Total Episodes</span>
-                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${st.episodes.toLocaleString()}</span>
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Shows Progress</h3>
+                        <div style="display:flex; height:12px; border-radius:6px; overflow:hidden; margin-bottom:1rem; background:#222;">
+                            <div style="width:${tvSeenPct}%; background:#34c759;" title="Completed/Up to date"></div>
+                            <div style="width:${tvWatchPct}%; background:var(--accent);" title="Watching"></div>
+                            <div style="width:${tvNotPct}%; background:#444;" title="Not Started"></div>
                         </div>
-                        <div style="display:flex; justify-content:space-between;">
-                            <span style="color:white; font-size:1.2rem;">Time Spent</span>
-                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${Math.round(tvMinutes/60).toLocaleString()} hrs</span>
+                        <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:#aaa; margin-bottom:1rem;">
+                            <span style="color:#34c759;">■ Seen (${tvSeen})</span>
+                            <span style="color:var(--accent);">■ Watching (${tvWatching})</span>
+                            <span style="color:#444;">■ Not Started (${tvNotStarted})</span>
+                        </div>
+                        <div style="padding-top:1rem; border-top:1px solid #333; display:flex; justify-content:space-between; font-size:0.9rem;">
+                            <span style="color:#aaa;">Dropped / Stopped</span>
+                            <span style="color:#ff3b30; font-weight:bold;">${droppedShows}</span>
                         </div>
                     </div>
                     
                     <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Movies</h3>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #222;">
-                            <span style="color:white; font-size:1.2rem;">Total Logged</span>
-                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${completedMovies.toLocaleString()}</span>
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Movies Progress</h3>
+                        <div style="display:flex; height:12px; border-radius:6px; overflow:hidden; margin-bottom:1rem; background:#222;">
+                            <div style="width:${movSeenPct}%; background:var(--accent);" title="Watched"></div>
+                            <div style="width:${movNotPct}%; background:#444;" title="Unwatched"></div>
                         </div>
-                        <div style="display:flex; justify-content:space-between;">
-                            <span style="color:white; font-size:1.2rem;">Time Spent</span>
-                            <span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${Math.round(movieMinutes/60).toLocaleString()} hrs</span>
+                        <div style="display:flex; justify-content:space-between; font-size:0.85rem; color:#aaa;">
+                            <span style="color:var(--accent);">■ Watched (${moviesSeen})</span>
+                            <span style="color:#444;">■ Unwatched (${moviesNotStarted})</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- Top Lists -->
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:2rem; margin-bottom:2rem;">
+                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Most Watched Shows</h3>
+                        ${showsHtml || '<p style="color:#666;">No data available.</p>'}
+                    </div>
                     <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
                         <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Top Genres</h3>
                         ${genresHtml || '<p style="color:#666;">No genre data available.</p>'}
                     </div>
                     <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Achievements</h3>
-                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap:1rem;">
-                            ${badgesHtml}
-                        </div>
-                    </div>
-                </div>
-
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:2rem; margin-bottom:2rem;">
-                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Most Binged Show</h3>
-                        <div style="font-size:1.5rem; font-weight:900; color:white; margin-top:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${mostBingedShowTitle}">${mostBingedShowTitle}</div>
-                        <div style="color:var(--accent); font-size:1rem; margin-top:0.5rem;">${mostBingedShowProgress} episodes</div>
-                    </div>
-                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Started vs Completed</h3>
-                        <div style="font-size:2.5rem; font-weight:900; color:white; margin-top:0.5rem;">${completedShows} <span style="font-size:1rem; color:#aaa; font-weight:normal;">/ ${startedShows}</span></div>
-                        <div class="progress-bar-bg" style="height:8px; border-radius:4px; margin: 1rem auto 0; background:#222; max-width:80%;"><div class="progress-bar-fill" style="width:${completionRate}%; background:var(--accent); border-radius:4px;"></div></div>
-                    </div>
-                    <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center;">
-                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase;">Favorite Decade</h3>
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent); margin-top:0.5rem;">${st.favDecade}</div>
-                        <div style="color:#aaa; font-size:0.9rem; margin-top:0.5rem;">Highest watch volume</div>
+                        <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1.5rem;">Favorite Release Years</h3>
+                        ${yearsHtml || '<p style="color:#666;">No data available.</p>'}
                     </div>
                 </div>
             `;
             
             document.getElementById('stats-story-container').innerHTML = storyHtml;
+            
+            // Render Graph
+            const ctx = document.getElementById('statsChartCanvas');
+            if(ctx) {
+                if(statsChart) statsChart.destroy();
+                statsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: graphLabels,
+                        datasets: [{
+                            label: 'Entries Watched',
+                            data: graphData,
+                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FFD600',
+                            backgroundColor: 'rgba(255, 214, 0, 0.1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#000',
+                            pointBorderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FFD600',
+                            pointRadius: 4,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: { grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                            y: { grid: { color: '#333' }, ticks: { color: '#aaa', beginAtZero: true } }
+                        }
+                    }
+                });
+            }
         }
 
         // Init
