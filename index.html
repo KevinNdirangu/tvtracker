@@ -556,88 +556,83 @@
                 c.innerHTML = "<p>No upcoming media scheduled.</p>";
                 return;
             }
-
-            let lastDate = '';
-            let htmlStr = '';
-            let foundTarget = false;
             
             // Get local YYYY-MM-DD for today
             const localToday = new Date();
             const todayYMD = localToday.getFullYear() + '-' + String(localToday.getMonth() + 1).padStart(2, '0') + '-' + String(localToday.getDate()).padStart(2, '0');
 
-            upcoming.forEach(ep => {
-                // To avoid timezone shifts when parsing YYYY-MM-DD, parse as local midnight
-                const [yy, mm, dd] = ep.air_date.split('-');
-                const epDate = new Date(yy, mm - 1, dd);
+            const pastEpisodes = upcoming.filter(ep => ep.air_date < todayYMD);
+            const futureEpisodes = upcoming.filter(ep => ep.air_date >= todayYMD);
+
+            const generateHtml = (eps) => {
+                let lastDate = '';
+                let htmlStr = '';
                 
-                const isToday = ep.air_date === todayYMD;
-                const displayDate = isToday ? "TODAY" : epDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-                
-                if(displayDate !== lastDate) {
-                    if(htmlStr !== '') htmlStr += '</div>';
+                eps.forEach(ep => {
+                    const [yy, mm, dd] = ep.air_date.split('-');
+                    const epDate = new Date(yy, mm - 1, dd);
+                    const isToday = ep.air_date === todayYMD;
+                    const displayDate = isToday ? "TODAY" : epDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
                     
-                    let headerId = '';
-                    const isTodayOrFuture = ep.air_date >= todayYMD;
-                    if (!foundTarget && isTodayOrFuture) {
-                        headerId = 'id="cal-today-header"';
-                        foundTarget = true;
+                    if(displayDate !== lastDate) {
+                        if(htmlStr !== '') htmlStr += '</div>';
+                        htmlStr += `<h3 style="margin-top:20px; border-bottom:1px solid #333; padding-bottom:10px; color:${isToday ? 'var(--accent)' : 'white'};">${displayDate}</h3>`;
+                        htmlStr += '<div class="show-grid">';
+                        lastDate = displayDate;
                     }
                     
-                    htmlStr += `<h3 ${headerId} style="margin-top:20px; border-bottom:1px solid #333; padding-bottom:10px; color:${isToday ? 'var(--accent)' : 'white'};">${displayDate}</h3>`;
-                    htmlStr += '<div class="show-grid">';
-                    lastDate = displayDate;
-                }
-                
-                const diff = Math.ceil((epDate - new Date()) / 86400000);
-                const diffText = diff <= 0 ? 'TODAY' : diff + ' DAYS';
-                const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
-                const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
-                
-                const d = new Date(ep.air_date);
-                const startStr = d.toISOString().split('T')[0].replace(/-/g, '');
-                const nextD = new Date(d);
-                nextD.setDate(nextD.getDate() + 1);
-                const endStr = nextD.toISOString().split('T')[0].replace(/-/g, '');
-                
-                const encTitle = encodeURIComponent(titleText);
-                const encDetails = encodeURIComponent(subtitle);
-                const gCalLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encTitle}&dates=${startStr}/${endStr}&details=${encDetails}`;
-                
-                htmlStr += `
-                    <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
-                        <img src="${ep.poster_url}" class="poster-img">
-                        <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diffText}</div>
-                        
-                        <button onclick="event.stopPropagation(); window.open('${gCalLink}', '_blank')" class="btn-add" style="background:white; color:black;" title="Add to Google Calendar">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        </button>
-                        
-                        <div class="card-info">
-                            <h2 class="show-title" style="font-size:0.9rem;">${titleText}</h2>
-                            <div style="font-size:0.75rem; color:#aaa; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${subtitle}</div>
+                    const diff = Math.ceil((epDate - new Date()) / 86400000);
+                    const diffText = isToday ? 'TODAY' : (diff < 0 ? Math.abs(diff) + ' D AGO' : diff + ' DAYS');
+                    
+                    const titleText = ep.type === 'movie' ? ep.show_title : `${ep.show_title} S${ep.season_number}E${ep.episode_number}`;
+                    const subtitle = ep.type === 'movie' ? 'Movie Release' : ep.ep_title;
+                    
+                    const d = new Date(ep.air_date);
+                    const startStr = d.toISOString().split('T')[0].replace(/-/g, '');
+                    const nextD = new Date(d);
+                    nextD.setDate(nextD.getDate() + 1);
+                    const endStr = nextD.toISOString().split('T')[0].replace(/-/g, '');
+                    
+                    const encTitle = encodeURIComponent(titleText);
+                    const encDetails = encodeURIComponent(subtitle);
+                    const gCalLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encTitle}&dates=${startStr}/${endStr}&details=${encDetails}`;
+                    
+                    htmlStr += `
+                        <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
+                            <img src="${ep.poster_url}" class="poster-img">
+                            <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diffText}</div>
+                            
+                            <button onclick="event.stopPropagation(); window.open('${gCalLink}', '_blank')" class="btn-add" style="background:white; color:black;" title="Add to Google Calendar">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            </button>
+                            
+                            <div class="card-info">
+                                <h2 class="show-title" style="font-size:0.9rem;">${titleText}</h2>
+                                <div style="font-size:0.75rem; color:#aaa; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${subtitle}</div>
+                            </div>
                         </div>
-                    </div>
-                `;
-            });
-            if(htmlStr !== '') htmlStr += '</div>';
-            
-            // If everything is in the past, just add a dummy target at the bottom so jump still works
-            if (!foundTarget) {
-                htmlStr += '<div id="cal-today-header"></div>';
+                    `;
+                });
+                
+                if(htmlStr !== '') htmlStr += '</div>';
+                return htmlStr;
+            };
+
+            let finalHtml = '';
+            if(pastEpisodes.length > 0) {
+                finalHtml += `<details style="margin-bottom: 2rem; background: var(--card-bg); padding: 1rem; border-radius: 12px; border: 1px solid #333;">
+                    <summary style="cursor:pointer; color:var(--text-muted); font-weight:bold; outline:none; user-select:none;">Show Past 30 Days (${pastEpisodes.length} Items)</summary>
+                    <div style="margin-top: 1rem;">${generateHtml(pastEpisodes)}</div>
+                </details>`;
             }
             
-            c.innerHTML = htmlStr;
+            if(futureEpisodes.length > 0) {
+                finalHtml += `<div id="cal-today-header"></div>` + generateHtml(futureEpisodes);
+            } else {
+                finalHtml += `<div id="cal-today-header"></div><p style="color:var(--text-muted);">All caught up! No upcoming media scheduled.</p>`;
+            }
             
-            // Auto-scroll to TODAY (or nearest) if it exists
-            setTimeout(() => {
-                if(!document.getElementById('tab-calendar').classList.contains('active')) return;
-                const todayHeader = document.getElementById('cal-today-header');
-                if (todayHeader) {
-                    // Scroll header to roughly the top, considering the sticky header offset
-                    const y = todayHeader.getBoundingClientRect().top + window.scrollY - 100;
-                    window.scrollTo({ top: y, behavior: 'smooth' });
-                }
-            }, 100);
+            c.innerHTML = finalHtml;
         }
 
         let searchTimeout;
