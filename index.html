@@ -556,6 +556,7 @@
 
             let lastDate = '';
             let htmlStr = '';
+            let foundTarget = false;
             
             // Get local YYYY-MM-DD for today
             const localToday = new Date();
@@ -571,7 +572,14 @@
                 
                 if(displayDate !== lastDate) {
                     if(htmlStr !== '') htmlStr += '</div>';
-                    const headerId = isToday ? 'id="cal-today-header"' : '';
+                    
+                    let headerId = '';
+                    const isTodayOrFuture = ep.air_date >= todayYMD;
+                    if (!foundTarget && isTodayOrFuture) {
+                        headerId = 'id="cal-today-header"';
+                        foundTarget = true;
+                    }
+                    
                     htmlStr += `<h3 ${headerId} style="margin-top:20px; border-bottom:1px solid #333; padding-bottom:10px; color:${isToday ? 'var(--accent)' : 'white'};">${displayDate}</h3>`;
                     htmlStr += '<div class="show-grid">';
                     lastDate = displayDate;
@@ -609,9 +617,15 @@
                 `;
             });
             if(htmlStr !== '') htmlStr += '</div>';
+            
+            // If everything is in the past, just add a dummy target at the bottom so jump still works
+            if (!foundTarget) {
+                htmlStr += '<div id="cal-today-header"></div>';
+            }
+            
             c.innerHTML = htmlStr;
             
-            // Auto-scroll to TODAY if it exists
+            // Auto-scroll to TODAY (or nearest) if it exists
             setTimeout(() => {
                 const todayHeader = document.getElementById('cal-today-header');
                 if (todayHeader) {
