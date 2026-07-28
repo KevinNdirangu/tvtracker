@@ -1579,12 +1579,31 @@
             const greetEl = document.getElementById('dash-greeting');
             if (greetEl) greetEl.innerHTML = `${greeting}, <span style="color:var(--accent);">Kevin</span>!`;
 
+            const epMap = new Map();
+            if (st.episodes) st.episodes.forEach(e => epMap.set(e.id, e));
+            
+            let totalMins = 0;
+            let totalEps = 0;
+            if (st.history) {
+                st.history.forEach(h => {
+                    totalEps++;
+                    const ep = epMap.get(h.episode_id);
+                    totalMins += ep && ep.runtime ? ep.runtime : 45;
+                });
+            }
+            
+            const mo = Math.floor(totalMins / 43200);
+            let rem = totalMins % 43200;
+            const d = Math.floor(rem / 1440);
+            rem %= 1440;
+            const h = Math.floor(rem / 60);
+
             let t = '';
-            if(st.time.m>0) t += `${st.time.m}mo `;
-            if(st.time.d>0) t += `${st.time.d}d `;
-            t += `${st.time.h}h`;
+            if(mo>0) t += `${mo}mo `;
+            if(d>0) t += `${d}d `;
+            t += `${h}h`;
             document.getElementById('st-time').innerText = t || '0h';
-            document.getElementById('st-eps').innerText = st.episodes;
+            document.getElementById('st-eps').innerText = totalEps;
             
             // Dash Airing Carousels
             const now = new Date();
