@@ -1718,9 +1718,18 @@
                 }
                 
                 if (h.watched_at) {
-                    const month = h.watched_at.slice(0, 7);
                     const year = h.watched_at.slice(0, 4);
-                    const key = yearFilter === 'all' ? year : month;
+                    let key = year;
+                    
+                    if (yearFilter !== 'all') {
+                        // Calculate week number of the year
+                        const dateObj = new Date(h.watched_at);
+                        const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
+                        const days = Math.floor((dateObj - startOfYear) / (24 * 60 * 60 * 1000));
+                        const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+                        key = `Week ${weekNumber.toString().padStart(2, '0')}`;
+                    }
+                    
                     monthlyCounts[key] = (monthlyCounts[key] || 0) + 1;
                 }
             });
@@ -1834,28 +1843,18 @@
                     <div style="color:var(--accent); font-weight:bold; font-size:1.2rem;">${totalMins.toLocaleString()} mins</div>
                 </div>
                 
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; margin-bottom:2rem;">
-                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${mo}</div>
-                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Months</div>
-                    </div>
-                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${d}</div>
-                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Days</div>
-                    </div>
-                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${h}</div>
-                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Hours</div>
-                    </div>
-                    <div style="background:var(--card-bg); padding:1.5rem; border-radius:16px; border:1px solid #333; text-align:center;">
-                        <div style="font-size:2.5rem; font-weight:900; color:var(--accent);">${m}</div>
-                        <div style="color:#aaa; font-size:0.8rem; text-transform:uppercase; margin-top:0.5rem;">Mins</div>
+                <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; text-align:center; margin-bottom:2rem;">
+                    <div style="font-size:3rem; font-weight:900; color:var(--accent);">
+                        ${mo > 0 ? mo + '<span style="font-size:1.2rem; color:#aaa; font-weight:normal; margin-right:10px;">mo</span>' : ''}
+                        ${(d > 0 || mo > 0) ? d + '<span style="font-size:1.2rem; color:#aaa; font-weight:normal; margin-right:10px;">d</span>' : ''}
+                        ${(h > 0 || d > 0 || mo > 0) ? h + '<span style="font-size:1.2rem; color:#aaa; font-weight:normal; margin-right:10px;">h</span>' : ''}
+                        ${m}<span style="font-size:1.2rem; color:#aaa; font-weight:normal;">m</span>
                     </div>
                 </div>
                 
                 <!-- Watch History Graph -->
                 <div style="background:var(--card-bg); padding:2rem; border-radius:24px; border:1px solid #333; margin-bottom:2rem;">
-                    <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1rem;">Watch History (${yearFilter === 'all' ? 'By Year' : 'By Month'})</h3>
+                    <h3 style="color:#aaa; margin-top:0; font-size:1rem; font-weight:normal; text-transform:uppercase; margin-bottom:1rem;">Watch History (${yearFilter === 'all' ? 'By Year' : 'By Week'})</h3>
                     <div style="position: relative; height: 300px; width: 100%;">
                         <canvas id="statsChartCanvas"></canvas>
                     </div>
