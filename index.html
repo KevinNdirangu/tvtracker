@@ -347,10 +347,11 @@
             <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                     <h4 style="margin: 0 0 0.5rem 0;">Export Database</h4>
-                    <div style="color: var(--text-muted); font-size: 0.85rem;">Download a complete backup of your library and watch history in JSON format.</div>
+                    <div style="color: var(--text-muted); font-size: 0.85rem;">Download a complete backup of your library and watch history.</div>
                 </div>
-                <div style="margin-top: 1rem;">
-                    <button class="btn-action" style="background: #0a84ff; color: white; font-weight: bold; width:100%;" onclick="exportFullData()">Export Data (.json)</button>
+                <div style="margin-top: 1rem; display: flex; gap: 10px;">
+                    <button class="btn-action" style="flex: 1; background: #0a84ff; color: white; font-weight: bold;" onclick="exportFullData('json')">JSON</button>
+                    <button class="btn-action" style="flex: 1; background: #34c759; color: black; font-weight: bold;" onclick="exportFullData('csv')">CSV</button>
                 </div>
             </div>
 
@@ -926,17 +927,40 @@
         }
 
         // --- DATA EXPORT ---
-        async function exportFullData() {
-            const btn = document.querySelector('button[onclick="exportFullData()"]');
-            if (btn) { btn.innerText = "Exporting..."; btn.disabled = true; }
+        async function exportFullData(format = 'json') {
+            const btn = event.target;
+            const originalText = btn.innerText;
+            if (btn) { btn.innerText = "..."; btn.disabled = true; }
             try {
                 const data = await window.ipcRenderer.invoke('export-data');
-                const json = JSON.stringify(data, null, 2);
-                const blob = new Blob([json], { type: 'application/json' });
+                
+                let blob, filename;
+                if (format === 'json') {
+                    const json = JSON.stringify(data, null, 2);
+                    blob = new Blob([json], { type: 'application/json' });
+                    filename = `tvtracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+                } else if (format === 'csv') {
+                    let csv = "show_name,season,episode,episode_name,date_watched\n";
+                    const showMap = new Map(data.shows.map(s => [s.id, s.title]));
+                    const epMap = new Map(data.episodes.map(e => [e.id, e]));
+                    
+                    data.watch_history.forEach(h => {
+                        const ep = epMap.get(h.episode_id);
+                        if(ep) {
+                            const showTitle = showMap.get(ep.show_id) || 'Unknown Show';
+                            const escapeCsv = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+                            csv += `${escapeCsv(showTitle)},${ep.season_number},${ep.episode_number},${escapeCsv(ep.title)},${escapeCsv(h.watched_at)}\n`;
+                        }
+                    });
+                    
+                    blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    filename = `tvtracker_history_${new Date().toISOString().split('T')[0]}.csv`;
+                }
+                
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `tvtracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -944,7 +968,7 @@
             } catch (e) {
                 alert("Export failed: " + e.message);
             } finally {
-                if (btn) { btn.innerText = "Export Data (.json)"; btn.disabled = false; }
+                if (btn) { btn.innerText = originalText; btn.disabled = false; }
             }
         }
 
