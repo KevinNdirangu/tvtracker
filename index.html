@@ -1006,7 +1006,7 @@
                     return;
                 }
                 
-                let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TV Tracker//EN\r\n";
+                let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TV Tracker//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:TV Time Tracker\r\nX-WR-TIMEZONE:UTC\r\n";
                 calData.forEach(ep => {
                     const dtStart = ep.air_date.replace(/-/g, '') + 'T000000Z';
                     const d = new Date(ep.air_date);

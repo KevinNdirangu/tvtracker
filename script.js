@@ -157,10 +157,13 @@ const api = {
     },
 
     async getCalendar() {
-        const today = new Date().toISOString().split('T')[0];
+        const pastDate = new Date();
+        pastDate.setDate(pastDate.getDate() - 30);
+        const fromDate = pastDate.toISOString().split('T')[0];
+        
         const { data: eps } = await supabaseClient.from('episodes')
             .select('id, show_id, season_number, episode_number, title, air_date')
-            .gte('air_date', today)
+            .gte('air_date', fromDate)
             .order('air_date', { ascending: true })
             .limit(300);
             

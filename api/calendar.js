@@ -9,10 +9,12 @@ module.exports = async function handler(req, res) {
     };
 
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const pastDate = new Date();
+        pastDate.setDate(pastDate.getDate() - 30);
+        const fromDate = pastDate.toISOString().split('T')[0];
         
-        // Fetch episodes from today onwards (limit 500)
-        const epRes = await fetch(`${SUPABASE_URL}/rest/v1/episodes?select=id,show_id,season_number,episode_number,title,air_date&air_date=gte.${today}&order=air_date.asc&limit=500`, { headers });
+        // Fetch episodes from last 30 days onwards (limit 500)
+        const epRes = await fetch(`${SUPABASE_URL}/rest/v1/episodes?select=id,show_id,season_number,episode_number,title,air_date&air_date=gte.${fromDate}&order=air_date.asc&limit=500`, { headers });
         if (!epRes.ok) throw new Error('Failed to fetch episodes');
         const eps = await epRes.json();
         
@@ -35,7 +37,7 @@ module.exports = async function handler(req, res) {
                 };
             });
 
-        let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TV Tracker//EN\r\n";
+        let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TV Tracker//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:TV Time Tracker\r\nX-WR-TIMEZONE:UTC\r\n";
         calData.forEach(ep => {
             const dtStart = ep.air_date.replace(/-/g, '') + 'T000000Z';
             const d = new Date(ep.air_date);
