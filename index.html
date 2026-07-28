@@ -527,7 +527,8 @@
                     renderCalendar(JSON.parse(cached));
                 } catch(e){}
             }
-            const upcoming = await ipcRenderer.invoke('get-calendar');
+            // Fetch calendar including past 30 days for the UI
+            const upcoming = await ipcRenderer.invoke('get-calendar', true);
             if(upcoming) {
                 localStorage.setItem('tvt_cal', JSON.stringify(upcoming));
                 renderCalendar(upcoming);
@@ -560,7 +561,8 @@
                 
                 if(displayDate !== lastDate) {
                     if(htmlStr !== '') htmlStr += '</div>';
-                    htmlStr += `<h3 style="margin-top:20px; border-bottom:1px solid #333; padding-bottom:10px; color:${isToday ? 'var(--accent)' : 'white'};">${displayDate}</h3>`;
+                    const headerId = isToday ? 'id="cal-today-header"' : '';
+                    htmlStr += `<h3 ${headerId} style="margin-top:20px; border-bottom:1px solid #333; padding-bottom:10px; color:${isToday ? 'var(--accent)' : 'white'};">${displayDate}</h3>`;
                     htmlStr += '<div class="show-grid">';
                     lastDate = displayDate;
                 }
@@ -598,6 +600,16 @@
             });
             if(htmlStr !== '') htmlStr += '</div>';
             c.innerHTML = htmlStr;
+            
+            // Auto-scroll to TODAY if it exists
+            setTimeout(() => {
+                const todayHeader = document.getElementById('cal-today-header');
+                if (todayHeader) {
+                    // Scroll header to roughly the top, considering the sticky header offset
+                    const y = todayHeader.getBoundingClientRect().top + window.scrollY - 100;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+            }, 100);
         }
 
         let searchTimeout;
