@@ -1182,11 +1182,12 @@
                             if(hasAired || ep.is_watched) {
                                 epsHtml += `
                                     <div id="ep-row-${ep.id}" class="ep-row ${ep.is_watched ? 'ep-watched':''}" 
+                                         data-watch-count="${ep.watch_count || 0}"
                                          onclick="toggleEp(event, ${ep.id}, ${tmdbId}, '${type}', ${localDbId})"
                                          oncontextmenu="event.preventDefault(); markUpTo(${ep.id}, ${s.id}, ${sNum}, ${ep.episode_number}, ${tmdbId}, '${type}', ${localDbId})">
                                         <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
-                                        <div style="display:flex; align-items:center; gap:8px;">
-                                            ${ep.watch_count > 1 ? `<span style="background:var(--accent); color:black; font-size:0.75rem; padding:2px 6px; border-radius:10px; font-weight:bold;">x${ep.watch_count}</span>` : ''}
+                                        <div style="display:flex; align-items:center; gap:8px;" id="ep-badge-container-${ep.id}">
+                                            ${ep.watch_count > 1 ? `<span class="watch-badge" style="background:var(--accent); color:black; font-size:0.75rem; padding:2px 6px; border-radius:10px; font-weight:bold;">x${ep.watch_count}</span>` : ''}
                                             <div class="custom-checkbox"></div>
                                         </div>
                                     </div>
@@ -1279,18 +1280,30 @@
                     document.getElementById('btn-log-again').onclick = async () => {
                         sheet.remove();
                         await ipcRenderer.invoke('log-episode', epId);
-                        openModal(tmdbId, type, true, localDbId);
+                        
+                        let count = parseInt(el.getAttribute('data-watch-count') || 1);
+                        count++;
+                        el.setAttribute('data-watch-count', count);
+                        const bc = document.getElementById('ep-badge-container-' + epId);
+                        if(bc) bc.innerHTML = `<span class="watch-badge" style="background:var(--accent); color:black; font-size:0.75rem; padding:2px 6px; border-radius:10px; font-weight:bold;">x${count}</span><div class="custom-checkbox"></div>`;
                     };
                     document.getElementById('btn-unmark').onclick = async () => {
                         sheet.remove();
                         await ipcRenderer.invoke('unlog-episode', epId);
-                        openModal(tmdbId, type, true, localDbId);
+                        
+                        el.classList.remove('ep-watched');
+                        el.setAttribute('data-watch-count', 0);
+                        const bc = document.getElementById('ep-badge-container-' + epId);
+                        if(bc) bc.innerHTML = `<div class="custom-checkbox"></div>`;
                     };
                     document.getElementById('btn-cancel').onclick = () => sheet.remove();
                 } else {
                     el.classList.add('ep-watched');
+                    el.setAttribute('data-watch-count', 1);
                     await ipcRenderer.invoke('log-episode', epId);
-                    openModal(tmdbId, type, true, localDbId);
+                    
+                    const bc = document.getElementById('ep-badge-container-' + epId);
+                    if(bc) bc.innerHTML = `<div class="custom-checkbox"></div>`;
                 }
             } catch (e) {
                 alert('Error toggling episode: ' + e.message);
