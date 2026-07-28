@@ -1344,9 +1344,12 @@
                         });
 
                         body.innerHTML += `
-                            <div class="season-header" onclick="this.nextElementSibling.classList.toggle('open')">
-                                <h3 style="margin:0;">Season ${sNum}</h3>
+                            <div class="season-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div onclick="this.parentElement.nextElementSibling.classList.toggle('open')" style="flex-grow:1; cursor:pointer;">
+                                    <h3 style="margin:0;">Season ${sNum}</h3>
+                                </div>
                                 <div style="display:flex; gap:10px;">
+                                    <button class="btn-action" style="font-size:0.75rem; padding: 4px 10px; background:#ff3b30; color:white;" onclick="unmarkSeason(${s.id}, ${sNum}, ${tmdbId}, '${type}', ${localDbId})">Unmark</button>
                                     <button class="btn-action" style="font-size:0.75rem; padding: 4px 10px;" onclick="event.stopPropagation(); ipcRenderer.invoke('log-season', ${s.id}, ${sNum}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark All</button>
                                 </div>
                             </div>
@@ -1542,6 +1545,13 @@
         async function markUpTo(epId, showId, seasonNum, epNum, tmdbId, type, localDbId) {
             if(confirm(`Mark all episodes up to S${seasonNum}E${epNum} as watched?`)) {
                 await ipcRenderer.invoke('log-up-to', showId, seasonNum, epNum);
+                openModal(tmdbId, type, true, localDbId);
+            }
+        }
+        
+        async function unmarkSeason(showId, seasonNum, tmdbId, type, localDbId) {
+            if(confirm(`Unmark all episodes in Season ${seasonNum}?`)) {
+                await ipcRenderer.invoke('unlog-season', showId, seasonNum);
                 openModal(tmdbId, type, true, localDbId);
             }
         }

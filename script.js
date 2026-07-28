@@ -467,7 +467,19 @@ const api = {
         }
     },
 
+    async unlogSeason(showId, seasonNum) {
+        const { data: eps } = await supabaseClient.from('episodes').select('id').eq('show_id', showId).eq('season_number', seasonNum);
+        if (!eps || eps.length === 0) return;
+        const epIds = eps.map(e => e.id);
+        
+        for(let i=0; i<epIds.length; i+=100) {
+            await supabaseClient.from('watch_history').delete().in('episode_id', epIds.slice(i, i+100));
+        }
+    },
+
     async logUpTo(showId, seasonNum, epNum) {
+        seasonNum = parseInt(seasonNum);
+        epNum = parseInt(epNum);
         const { data: eps } = await supabaseClient.from('episodes').select('id, season_number, episode_number, air_date, watch_history(id)').eq('show_id', showId);
         if (!eps) return;
         const toInsert = eps.filter(e => {
@@ -514,6 +526,7 @@ window.ipcRenderer = {
         if(channel === 'toggle-timezone-offset') return api.toggleTimezoneShift(...args);
         if(channel === 'get-stats') return api.getStats();
         if(channel === 'log-season') return api.logSeason(...args);
+        if(channel === 'unlog-season') return api.unlogSeason(...args);
         if(channel === 'log-up-to') return api.logUpTo(...args);
         if(channel === 'export-data') return api.exportData();
         
