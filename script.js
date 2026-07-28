@@ -509,6 +509,13 @@ const api = {
             for(let i=0; i<toInsert.length; i++) toInsert[i].id = nextId + i;
             for(let i=0; i<toInsert.length; i+=500) await supabaseClient.from('watch_history').insert(toInsert.slice(i, i+500));
         }
+    },
+
+    async exportData() {
+        const shows = await fetchAllParallel('shows', '*');
+        const episodes = await fetchAllParallel('episodes', '*');
+        const history = await fetchAllParallel('watch_history', '*');
+        return { shows, episodes, watch_history: history };
     }
 };
 
@@ -536,6 +543,7 @@ window.ipcRenderer = {
         if(channel === 'get-stats') return api.getStats();
         if(channel === 'log-season') return api.logSeason(...args);
         if(channel === 'log-up-to') return api.logUpTo(...args);
+        if(channel === 'export-data') return api.exportData();
         
         // Unsupported operations that require native Node filesystem access
         if(channel === 'import-csv') { alert("Importing CSV is not supported on Web/Mobile"); return { success: false }; }
