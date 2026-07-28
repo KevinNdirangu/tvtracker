@@ -156,10 +156,15 @@ const api = {
         });
     },
 
-    async getCalendar() {
-        const pastDate = new Date();
-        pastDate.setDate(pastDate.getDate() - 30);
-        const fromDate = pastDate.toISOString().split('T')[0];
+    async getCalendar(includePast = false) {
+        let fromDate;
+        if (includePast) {
+            const pastDate = new Date();
+            pastDate.setDate(pastDate.getDate() - 30);
+            fromDate = pastDate.toISOString().split('T')[0];
+        } else {
+            fromDate = new Date().toISOString().split('T')[0];
+        }
         
         const { data: eps } = await supabaseClient.from('episodes')
             .select('id, show_id, season_number, episode_number, title, air_date')
@@ -526,7 +531,7 @@ window.ipcRenderer = {
         if(channel === 'get-trending') return api.getTrending(...args);
         if(channel === 'search-tmdb') return api.searchTmdb(...args);
         if(channel === 'get-library') return api.getLibrary();
-        if(channel === 'get-calendar') return api.getCalendar();
+        if(channel === 'get-calendar') return api.getCalendar(...args);
         if(channel === 'get-show-details') return api.getShowDetails(...args);
         if(channel === 'get-tmdb-details') return api.getTmdbDetails(...args);
         if(channel === 'get-tmdb-extra') return api.getTmdbExtra(...args);

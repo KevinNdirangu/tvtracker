@@ -166,7 +166,13 @@
 
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
-        <h2 id="dash-greeting" style="margin-top:0; margin-bottom:2rem; font-size: 2.2rem;">Welcome, <span style="color:var(--accent);">Kevin</span>!</h2>
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:2rem; flex-wrap:wrap; gap:10px;">
+            <h2 id="dash-greeting" style="margin:0; font-size: 2.2rem;">Welcome, <span style="color:var(--accent);">Kevin</span>!</h2>
+            <div style="text-align:right; color:var(--text-muted); background:var(--card-bg); padding:10px 15px; border-radius:12px; border:1px solid #333;">
+                <div id="dash-date" style="font-weight:bold; font-size:1.1rem; color:white;"></div>
+                <div id="dash-time" style="font-size:0.9rem;"></div>
+            </div>
+        </div>
         
         <h3 style="margin-top: 0;">Continue Watching</h3>
         <div id="dash-continue-watching" class="horizontal-scroller"></div>
@@ -539,9 +545,17 @@
 
             let lastDate = '';
             let htmlStr = '';
+            
+            // Get local YYYY-MM-DD for today
+            const localToday = new Date();
+            const todayYMD = localToday.getFullYear() + '-' + String(localToday.getMonth() + 1).padStart(2, '0') + '-' + String(localToday.getDate()).padStart(2, '0');
+
             upcoming.forEach(ep => {
-                const epDate = new Date(ep.air_date);
-                const isToday = epDate.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+                // To avoid timezone shifts when parsing YYYY-MM-DD, parse as local midnight
+                const [y, m, d] = ep.air_date.split('-');
+                const epDate = new Date(y, m - 1, d);
+                
+                const isToday = ep.air_date === todayYMD;
                 const displayDate = isToday ? "TODAY" : epDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
                 
                 if(displayDate !== lastDate) {
@@ -937,7 +951,20 @@
             if (countEl) countEl.innerText = `${filtered.length} Items`;
         }
 
-        // --- DATA EXPORT ---
+        // --- CLOCK ---
+        function updateClock() {
+            const now = new Date();
+            const dateEl = document.getElementById('dash-date');
+            const timeEl = document.getElementById('dash-time');
+            if(dateEl && timeEl) {
+                dateEl.innerText = now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                timeEl.innerText = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- NAVIGATION ---
         async function exportFullData(format = 'json') {
             const btn = event.target;
             const originalText = btn.innerText;
@@ -1069,7 +1096,8 @@
             const btn = document.querySelector('button[onclick="exportCalendar()"]');
             if(btn) { btn.innerText = "Exporting..."; btn.disabled = true; }
             try {
-                const calData = await window.ipcRenderer.invoke('get-calendar');
+                // Pass true to getCalendar to include past 30 days in the export
+                const calData = await window.ipcRenderer.invoke('get-calendar', true);
                 if (!calData || calData.length === 0) {
                     alert("Calendar is empty or failed to load.");
                     return;
