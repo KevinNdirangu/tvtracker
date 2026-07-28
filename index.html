@@ -1439,19 +1439,70 @@
                     };
                     document.getElementById('btn-cancel').onclick = () => sheet.remove();
                 } else {
-                    el.classList.add('ep-watched');
-                    el.setAttribute('data-watch-count', 1);
-                    await ipcRenderer.invoke('log-episode', epId);
+                    const allRows = Array.from(document.querySelectorAll('.ep-row'));
+                    const currentIndex = allRows.indexOf(el);
                     
-                    const bc = document.getElementById('ep-badge-container-' + epId);
-                    if(bc) bc.innerHTML = `<div class="custom-checkbox"></div>`;
+                    let unwatchedPrevious = 0;
+                    for(let i=0; i<currentIndex; i++) {
+                        if (!allRows[i].classList.contains('ep-watched')) unwatchedPrevious++;
+                    }
                     
-                    // Check if they just watched the last episode of an ended/canceled show
-                    if (currentOpenType === 'tv' && (currentOpenShowStatus === 'Ended' || currentOpenShowStatus === 'Canceled')) {
-                        const allRows = document.querySelectorAll('.ep-row');
-                        const watchedRows = document.querySelectorAll('.ep-row.ep-watched');
-                        if (allRows.length > 0 && allRows.length === watchedRows.length) {
-                            triggerConfetti();
+                    if (unwatchedPrevious > 0) {
+                        const sheet = document.createElement('div');
+                        sheet.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; display:flex; align-items:center; justify-content:center;";
+                        sheet.innerHTML = `
+                            <div style="background:#222; padding:2rem; border-radius:16px; width:80%; max-width:320px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                                <h3 style="margin-top:0; margin-bottom:1rem;">Mark Previous?</h3>
+                                <p style="color:#aaa; font-size:0.9rem; margin-bottom:1.5rem;">There are ${unwatchedPrevious} unmarked previous episodes. Do you want to mark them as watched too?</p>
+                                <button id="btn-mark-all" class="btn-action" style="width:100%; margin-bottom:10px; background:var(--accent); color:black;">Yes, Mark Up to Here</button>
+                                <button id="btn-mark-one" class="btn-action" style="width:100%; margin-bottom:10px; background:#444; color:white;">No, Just This Episode</button>
+                                <button id="btn-cancel-mark" class="btn-action" style="width:100%; background:transparent; color:#aaa; border:1px solid #444;">Cancel</button>
+                            </div>
+                        `;
+                        document.body.appendChild(sheet);
+                        
+                        return new Promise((resolve) => {
+                            document.getElementById('btn-mark-all').onclick = async () => {
+                                sheet.remove();
+                                const ctxAttr = el.getAttribute('oncontextmenu');
+                                const match = ctxAttr.match(/markUpTo\((.+)\)/);
+                                if (match) {
+                                    const args = match[1].split(',').map(s => s.trim().replace(/'/g, ''));
+                                    await ipcRenderer.invoke('log-up-to', args[1], args[2], args[3]);
+                                    openModal(args[4], args[5], true, args[6]);
+                                }
+                                resolve();
+                            };
+                            
+                            document.getElementById('btn-mark-one').onclick = async () => {
+                                sheet.remove();
+                                await doSingleMark();
+                                resolve();
+                            };
+                            
+                            document.getElementById('btn-cancel-mark').onclick = () => {
+                                sheet.remove();
+                                resolve();
+                            };
+                        });
+                    } else {
+                        await doSingleMark();
+                    }
+                    
+                    async function doSingleMark() {
+                        el.classList.add('ep-watched');
+                        el.setAttribute('data-watch-count', 1);
+                        await ipcRenderer.invoke('log-episode', epId);
+                        
+                        const bc = document.getElementById('ep-badge-container-' + epId);
+                        if(bc) bc.innerHTML = `<div class="custom-checkbox"></div>`;
+                        
+                        if (currentOpenType === 'tv' && (currentOpenShowStatus === 'Ended' || currentOpenShowStatus === 'Canceled')) {
+                            const currentAllRows = document.querySelectorAll('.ep-row');
+                            const currentWatchedRows = document.querySelectorAll('.ep-row.ep-watched');
+                            if (currentAllRows.length > 0 && currentAllRows.length === currentWatchedRows.length) {
+                                triggerConfetti();
+                            }
                         }
                     }
                 }
