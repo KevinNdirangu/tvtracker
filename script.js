@@ -195,6 +195,7 @@ const api = {
         const processedEps = episodes.map(ep => ({
             ...ep,
             is_watched: ep.watch_history && ep.watch_history.length > 0,
+            watch_count: ep.watch_history ? ep.watch_history.length : 0,
             watched_at: ep.watch_history && ep.watch_history.length > 0 ? ep.watch_history[0].watched_at : null
         })).sort((a,b) => a.season_number !== b.season_number ? a.season_number - b.season_number : a.episode_number - b.episode_number);
         
@@ -330,14 +331,11 @@ const api = {
     },
 
     async logEpisode(epId) {
-        const { data: existing } = await supabaseClient.from('watch_history').select('id').eq('episode_id', epId).single();
-        if(!existing) {
-            for(let attempt=0; attempt<10; attempt++) {
-                const nextId = await this.getNextId('watch_history') + attempt;
-                const { error } = await supabaseClient.from('watch_history').insert({ id: nextId, episode_id: epId });
-                if (!error) break;
-                if (error.code !== '23505') break; // If not duplicate key, stop retrying
-            }
+        for(let attempt=0; attempt<10; attempt++) {
+            const nextId = await this.getNextId('watch_history') + attempt;
+            const { error } = await supabaseClient.from('watch_history').insert({ id: nextId, episode_id: epId });
+            if (!error) break;
+            if (error.code !== '23505') break; // If not duplicate key, stop retrying
         }
     },
 

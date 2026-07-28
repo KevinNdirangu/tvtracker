@@ -272,6 +272,7 @@
                 <option value="all">All Genres</option>
             </select>
             <input type="text" class="search-box" id="libSearchInput" placeholder="Search library..." oninput="renderLibraryGrid()">
+            <span id="lib-count" style="margin-left:15px; color:#aaa; font-weight:bold; white-space:nowrap;"></span>
         </div>
         
         <!-- Second Level Filter -->
@@ -906,6 +907,9 @@
                 `;
             });
             c.innerHTML = htmlStr;
+            
+            const countEl = document.getElementById('lib-count');
+            if (countEl) countEl.innerText = `${filtered.length} Items`;
         }
 
         // --- DATA IMPORT LOGIC ---
@@ -1084,7 +1088,31 @@
                 
                 document.getElementById('m-title').innerText = s.title;
                 document.getElementById('m-poster').src = s.poster_url;
-                document.getElementById('m-meta').innerText = s.genre;
+                document.getElementById('m-meta').innerHTML = `<span id="m-meta-text">${s.genre}</span> <span id="m-live-status"></span>`;
+                
+                if(s.type === 'tv') {
+                    ipcRenderer.invoke('get-tmdb-details', tmdbId, type).then(liveTmdb => {
+                        const showStatus = liveTmdb.status || s.status;
+                        const nextEp = liveTmdb.next_episode_to_air;
+                        
+                        let statusBadgeHtml = '';
+                        if (showStatus) {
+                            let badgeColor = '#666';
+                            if (showStatus === 'Returning Series') badgeColor = '#34c759';
+                            else if (showStatus === 'Ended' || showStatus === 'Canceled') badgeColor = '#ff3b30';
+                            else if (showStatus === 'In Production') badgeColor = '#0a84ff';
+                            statusBadgeHtml = `<span style="background:${badgeColor}; color:white; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold; margin-right:8px; display:inline-block;">${showStatus}</span>`;
+                        }
+                        
+                        let nextEpDateHtml = '';
+                        if (nextEp && nextEp.air_date) {
+                            nextEpDateHtml = `<span style="font-size:0.8rem; color:#aaa; margin-left:5px;">(Next: ${nextEp.air_date})</span>`;
+                        }
+                        
+                        const ls = document.getElementById('m-live-status');
+                        if (ls) ls.innerHTML = `<div style="margin-top:10px;">${statusBadgeHtml} ${nextEpDateHtml}</div>`;
+                    }).catch(e => console.error(e));
+                }
                 document.getElementById('m-overview').innerText = s.overview;
                 
                 // Header Actions
@@ -1128,10 +1156,13 @@
                 });
 
                 if(s.type === 'movie') {
-                    const ep = data.episodes[0]; // The dummy episode
+                    const ep = data.episodes[0];
                     if(ep.is_watched) {
-                        body.innerHTML = `<h2>Status: <span style="color:var(--accent);">Watched</span></h2>
-                        <button class="btn-action" style="background:#333; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark as Unwatched</button>`;
+                        body.innerHTML = `<h2>Status: <span style="color:var(--accent);">Watched ${ep.watch_count > 1 ? `(x${ep.watch_count})` : ''}</span></h2>
+                        <div style="display:flex; gap:10px; margin-top:1rem;">
+                            <button class="btn-action" style="flex:1;" onclick="ipcRenderer.invoke('log-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Log Another Watch</button>
+                            <button class="btn-action" style="flex:1; background:#333; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Unmark completely</button>
+                        </div>`;
                     } else {
                         body.innerHTML = `<h2>Status: Not Seen</h2>
                         <button class="btn-action" onclick="ipcRenderer.invoke('log-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Mark as Watched</button>`;
@@ -1151,10 +1182,13 @@
                             if(hasAired || ep.is_watched) {
                                 epsHtml += `
                                     <div id="ep-row-${ep.id}" class="ep-row ${ep.is_watched ? 'ep-watched':''}" 
-                                         onclick="toggleEp(event, ${ep.id})"
+                                         onclick="toggleEp(event, ${ep.id}, ${tmdbId}, '${type}', ${localDbId})"
                                          oncontextmenu="event.preventDefault(); markUpTo(${ep.id}, ${s.id}, ${sNum}, ${ep.episode_number}, ${tmdbId}, '${type}', ${localDbId})">
                                         <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
-                                        <div class="custom-checkbox"></div>
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            ${ep.watch_count > 1 ? `<span style="background:var(--accent); color:black; font-size:0.75rem; padding:2px 6px; border-radius:10px; font-weight:bold;">x${ep.watch_count}</span>` : ''}
+                                            <div class="custom-checkbox"></div>
+                                        </div>
                                     </div>
                                 `;
                             } else {
@@ -1222,7 +1256,7 @@
             }
         }
 
-        async function toggleEp(event, epId) {
+        async function toggleEp(event, epId, tmdbId, type, localDbId) {
             if(event) event.stopPropagation();
             const el = document.getElementById('ep-row-' + epId);
             if(!el) return;
@@ -1230,11 +1264,33 @@
             
             try {
                 if(isWatched) {
-                    el.classList.remove('ep-watched');
-                    await ipcRenderer.invoke('unlog-episode', epId);
+                    const sheet = document.createElement('div');
+                    sheet.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; display:flex; align-items:center; justify-content:center;";
+                    sheet.innerHTML = `
+                        <div style="background:#222; padding:2rem; border-radius:16px; width:80%; max-width:300px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                            <h3 style="margin-top:0; margin-bottom:1.5rem;">Already Watched</h3>
+                            <button id="btn-log-again" class="btn-action" style="width:100%; margin-bottom:10px; background:var(--accent);">Log Another Watch</button>
+                            <button id="btn-unmark" class="btn-action" style="width:100%; margin-bottom:10px; background:#ff3b30; color:white;">Unmark Episode</button>
+                            <button id="btn-cancel" class="btn-action" style="width:100%; background:#444; color:white;">Cancel</button>
+                        </div>
+                    `;
+                    document.body.appendChild(sheet);
+                    
+                    document.getElementById('btn-log-again').onclick = async () => {
+                        sheet.remove();
+                        await ipcRenderer.invoke('log-episode', epId);
+                        openModal(tmdbId, type, true, localDbId);
+                    };
+                    document.getElementById('btn-unmark').onclick = async () => {
+                        sheet.remove();
+                        await ipcRenderer.invoke('unlog-episode', epId);
+                        openModal(tmdbId, type, true, localDbId);
+                    };
+                    document.getElementById('btn-cancel').onclick = () => sheet.remove();
                 } else {
                     el.classList.add('ep-watched');
                     await ipcRenderer.invoke('log-episode', epId);
+                    openModal(tmdbId, type, true, localDbId);
                 }
             } catch (e) {
                 alert('Error toggling episode: ' + e.message);
