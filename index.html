@@ -298,9 +298,19 @@
     </div>
 
     <!-- CALENDAR -->
-    <div id="tab-calendar" class="tab-content">
+    <div id="tab-calendar" class="tab-content" style="position: relative;">
         <h2 style="margin-top: 0;">Upcoming Schedule</h2>
         <div id="grid-calendar"></div>
+        <button onclick="
+            const target = document.getElementById('cal-today-header');
+            if (target) {
+                const y = target.getBoundingClientRect().top + window.scrollY - 100;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
+        " style="position: fixed; bottom: 100px; right: 20px; background: var(--accent); color: black; border: none; border-radius: 25px; padding: 12px 20px; font-weight: bold; font-size: 0.9rem; box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: pointer; display: flex; align-items: center; gap: 8px; z-index: 90;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            TODAY
+        </button>
     </div>
 
     <!-- SETTINGS / DATA MANAGEMENT -->
