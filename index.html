@@ -552,8 +552,8 @@
 
             upcoming.forEach(ep => {
                 // To avoid timezone shifts when parsing YYYY-MM-DD, parse as local midnight
-                const [y, m, d] = ep.air_date.split('-');
-                const epDate = new Date(y, m - 1, d);
+                const [yy, mm, dd] = ep.air_date.split('-');
+                const epDate = new Date(yy, mm - 1, dd);
                 
                 const isToday = ep.air_date === todayYMD;
                 const displayDate = isToday ? "TODAY" : epDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
