@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>TV Time DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="script.js"></script>
     <style>
         :root { --bg-color: #000; --card-bg: #1c1c1e; --text-main: #fff; --text-muted: #8e8e93; --accent: #FFD600; --tag-movie: #ff3b30; --tag-tv: #34c759; }
@@ -427,6 +428,7 @@
         let currentOpenShowId = null;
         let currentOpenTmdbId = null;
         let currentOpenType = null;
+        let currentOpenShowStatus = null;
         
         // Library State
         let curLibType = 'all';
@@ -1093,6 +1095,7 @@
                 if(s.type === 'tv') {
                     ipcRenderer.invoke('get-tmdb-details', tmdbId, type).then(liveTmdb => {
                         const showStatus = liveTmdb.status || s.status;
+                        currentOpenShowStatus = showStatus;
                         const nextEp = liveTmdb.next_episode_to_air;
                         
                         let statusBadgeHtml = '';
@@ -1304,10 +1307,47 @@
                     
                     const bc = document.getElementById('ep-badge-container-' + epId);
                     if(bc) bc.innerHTML = `<div class="custom-checkbox"></div>`;
+                    
+                    // Check if they just watched the last episode of an ended/canceled show
+                    if (currentOpenType === 'tv' && (currentOpenShowStatus === 'Ended' || currentOpenShowStatus === 'Canceled')) {
+                        const allRows = document.querySelectorAll('.ep-row');
+                        const watchedRows = document.querySelectorAll('.ep-row.ep-watched');
+                        if (allRows.length > 0 && allRows.length === watchedRows.length) {
+                            triggerConfetti();
+                        }
+                    }
                 }
             } catch (e) {
                 alert('Error toggling episode: ' + e.message);
             }
+        }
+        
+        function triggerConfetti() {
+            var duration = 3 * 1000;
+            var end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0, y: 0.8 },
+                    zIndex: 3000,
+                    colors: ['#FFD600', '#34c759', '#ff3b30', '#0a84ff', '#ffffff']
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1, y: 0.8 },
+                    zIndex: 3000,
+                    colors: ['#FFD600', '#34c759', '#ff3b30', '#0a84ff', '#ffffff']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
         }
 
         async function markUpTo(epId, showId, seasonNum, epNum, tmdbId, type, localDbId) {
