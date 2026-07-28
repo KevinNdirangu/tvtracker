@@ -480,6 +480,9 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + tab).classList.add('active');
             if(el) el.classList.add('active');
+            
+            window.scrollTo(0,0);
+            
             if(tab === 'dashboard') loadDash();
             if(tab === 'notifications') loadDash();
             if(tab === 'discover') loadDiscover();
@@ -627,6 +630,7 @@
             
             // Auto-scroll to TODAY (or nearest) if it exists
             setTimeout(() => {
+                if(!document.getElementById('tab-calendar').classList.contains('active')) return;
                 const todayHeader = document.getElementById('cal-today-header');
                 if (todayHeader) {
                     // Scroll header to roughly the top, considering the sticky header offset
