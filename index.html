@@ -1225,7 +1225,7 @@
                 if (extra.recommendations && extra.recommendations.results && extra.recommendations.results.length > 0) {
                     extraHtml += `<h3 style="margin-top:2rem;">Similar & Recommended</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
                     extra.recommendations.results.slice(0, 10).forEach(rec => {
-                        const img = rec.poster_path ? \`https://image.tmdb.org/t/p/w200\${rec.poster_path}\` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                        const img = rec.poster_path ? `https://image.tmdb.org/t/p/w200${rec.poster_path}` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
                         const recType = rec.media_type || type;
                         extraHtml += `
                             <div style="text-align:center; width:100px; flex-shrink:0; cursor:pointer;" onclick="closeModal(); setTimeout(() => openModal(${rec.id}, '${recType}', false), 300)">
@@ -1330,7 +1330,7 @@
                     if(extra.credits && extra.credits.cast && extra.credits.cast.length > 0) {
                         extraHtml += `<h3>Top Cast</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
                         extra.credits.cast.slice(0, 8).forEach(actor => {
-                            const img = actor.profile_path ? \`https://image.tmdb.org/t/p/w200\${actor.profile_path}\` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                            const img = actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
                             extraHtml += `<div style="text-align:center; width:100px; flex-shrink:0;"><img src="${img}" style="width:100px; height:150px; object-fit:cover; border-radius:8px;"><div style="font-size:0.75rem; margin-top:4px;">${actor.name}</div></div>`;
                         });
                         extraHtml += `</div>`;
@@ -1339,7 +1339,7 @@
                     if (extra.recommendations && extra.recommendations.results && extra.recommendations.results.length > 0) {
                         extraHtml += `<h3 style="margin-top:2rem;">Similar & Recommended</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
                         extra.recommendations.results.slice(0, 10).forEach(rec => {
-                            const img = rec.poster_path ? \`https://image.tmdb.org/t/p/w200\${rec.poster_path}\` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                            const img = rec.poster_path ? `https://image.tmdb.org/t/p/w200${rec.poster_path}` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
                             const recType = rec.media_type || type;
                             extraHtml += `
                                 <div style="text-align:center; width:100px; flex-shrink:0; cursor:pointer;" onclick="closeModal(); setTimeout(() => openModal(${rec.id}, '${recType}', false), 300)">
