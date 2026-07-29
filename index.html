@@ -1192,11 +1192,21 @@
                 // Not in library - show preview and add button
                 document.getElementById('m-extra-meta').style.display = 'none';
                 currentOpenShowId = null;
-                const data = await ipcRenderer.invoke('get-tmdb-details', tmdbId, type);
-                document.getElementById('m-title').innerText = data.title || data.name;
-                document.getElementById('m-poster').src = getImg(data.poster_path);
-                document.getElementById('m-meta').innerText = type.toUpperCase();
-                document.getElementById('m-overview').innerText = data.overview;
+                const extra = await ipcRenderer.invoke('get-tmdb-extra', tmdbId, type);
+                document.getElementById('m-title').innerText = extra.title || extra.name;
+                document.getElementById('m-poster').src = getImg(extra.poster_path);
+                
+                let ratingHtml = '';
+                if(extra.vote_average) {
+                    ratingHtml = `<div style="display:inline-flex; align-items:center; gap:5px; margin-left:15px;">
+                        <span style="color:#FFD600; font-size:1.1rem;">★</span>
+                        <span style="font-weight:bold; color:white;">${extra.vote_average.toFixed(1)}</span>
+                        <span style="color:#aaa; font-size:0.8rem;">/ 10</span>
+                    </div>`;
+                }
+                
+                document.getElementById('m-meta').innerHTML = `<span>${type.toUpperCase()}</span>` + ratingHtml;
+                document.getElementById('m-overview').innerText = extra.overview;
                 
                 if (type === 'movie') {
                     document.getElementById('m-actions').innerHTML = `
@@ -1206,6 +1216,29 @@
                 } else {
                     document.getElementById('m-actions').innerHTML = `<button class="btn-action" onclick="quickAdd(${tmdbId}, 'tv', false); closeModal();">Add to Library</button>`;
                 }
+                
+                let extraHtml = '<div style="margin-top:2rem; padding-top:2rem; border-top:1px solid #333;">';
+                if(extra.videos && extra.videos.results) {
+                    const tr = extra.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                    if(tr) extraHtml += `<button class="btn-action" style="background:#ff3b30; color:white; margin-bottom:1rem;" onclick="require('electron').shell.openExternal('https://youtube.com/watch?v=${tr.key}')">▶ Watch Trailer</button>`;
+                }
+                if (extra.recommendations && extra.recommendations.results && extra.recommendations.results.length > 0) {
+                    extraHtml += `<h3 style="margin-top:2rem;">Similar & Recommended</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
+                    extra.recommendations.results.slice(0, 10).forEach(rec => {
+                        const img = rec.poster_path ? \`https://image.tmdb.org/t/p/w200\${rec.poster_path}\` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                        const recType = rec.media_type || type;
+                        extraHtml += `
+                            <div style="text-align:center; width:100px; flex-shrink:0; cursor:pointer;" onclick="closeModal(); setTimeout(() => openModal(${rec.id}, '${recType}', false), 300)">
+                                <img src="${img}" style="width:100px; height:150px; object-fit:cover; border-radius:8px; border:1px solid #333; transition:0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#333'">
+                                <div style="font-size:0.75rem; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${rec.title || rec.name}</div>
+                            </div>
+                        `;
+                    });
+                    extraHtml += `</div>`;
+                }
+                extraHtml += '</div>';
+                document.getElementById('m-body').innerHTML = extraHtml;
+                
             } else {
                 // It's local! Fetch rich details from our SQLite DB
                 // If we don't have localDbId (clicked from discover), find it
@@ -1276,6 +1309,17 @@
                 
                 ipcRenderer.invoke('get-tmdb-extra', tmdbId, type).then(extra => {
                     if(!extra) return;
+                    
+                    if(extra.vote_average) {
+                        const ratingHtml = `<div style="display:inline-flex; align-items:center; gap:5px; margin-left:15px;">
+                            <span style="color:#FFD600; font-size:1.1rem;">★</span>
+                            <span style="font-weight:bold; color:white;">${extra.vote_average.toFixed(1)}</span>
+                            <span style="color:#aaa; font-size:0.8rem;">/ 10</span>
+                        </div>`;
+                        const metaEl = document.getElementById('m-meta');
+                        if(metaEl) metaEl.innerHTML += ratingHtml;
+                    }
+                    
                     let extraHtml = '<div style="margin-top:2rem; padding-top:2rem; border-top:1px solid #333;">';
                     
                     if(extra.videos && extra.videos.results) {
@@ -1286,11 +1330,27 @@
                     if(extra.credits && extra.credits.cast && extra.credits.cast.length > 0) {
                         extraHtml += `<h3>Top Cast</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
                         extra.credits.cast.slice(0, 8).forEach(actor => {
-                            const img = actor.profile_path ? `https://image.tmdb.org/t/p/w200${actor.profile_path}` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                            const img = actor.profile_path ? \`https://image.tmdb.org/t/p/w200\${actor.profile_path}\` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
                             extraHtml += `<div style="text-align:center; width:100px; flex-shrink:0;"><img src="${img}" style="width:100px; height:150px; object-fit:cover; border-radius:8px;"><div style="font-size:0.75rem; margin-top:4px;">${actor.name}</div></div>`;
                         });
                         extraHtml += `</div>`;
                     }
+                    
+                    if (extra.recommendations && extra.recommendations.results && extra.recommendations.results.length > 0) {
+                        extraHtml += `<h3 style="margin-top:2rem;">Similar & Recommended</h3><div style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px;">`;
+                        extra.recommendations.results.slice(0, 10).forEach(rec => {
+                            const img = rec.poster_path ? \`https://image.tmdb.org/t/p/w200\${rec.poster_path}\` : 'https://via.placeholder.com/100x150/333/fff?text=No+Img';
+                            const recType = rec.media_type || type;
+                            extraHtml += `
+                                <div style="text-align:center; width:100px; flex-shrink:0; cursor:pointer;" onclick="closeModal(); setTimeout(() => openModal(${rec.id}, '${recType}', false), 300)">
+                                    <img src="${img}" style="width:100px; height:150px; object-fit:cover; border-radius:8px; border:1px solid #333; transition:0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='#333'">
+                                    <div style="font-size:0.75rem; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${rec.title || rec.name}</div>
+                                </div>
+                            `;
+                        });
+                        extraHtml += `</div>`;
+                    }
+                    
                     extraHtml += '</div>';
                     
                     body.innerHTML = body.innerHTML + extraHtml;

@@ -216,7 +216,7 @@ const api = {
     },
 
     async getTmdbExtra(tmdbId, type) {
-        const res = await fetch(`https://api.themoviedb.org/3/${type === 'movie' ? 'movie' : 'tv'}/${tmdbId}?api_key=${TMDB_KEY}&append_to_response=videos,credits`);
+        const res = await fetch(`https://api.themoviedb.org/3/${type === 'movie' ? 'movie' : 'tv'}/${tmdbId}?api_key=${TMDB_KEY}&append_to_response=videos,credits,recommendations`);
         return await res.json();
     },
 
