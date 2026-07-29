@@ -36,7 +36,7 @@
         .show-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; align-items: start; }
         .poster-card { position: relative; background: var(--card-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 2/3; cursor: pointer; transition: transform 0.2s; align-self: start; }
         .poster-card:hover { transform: translateY(-5px); }
-        .poster-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; transition: opacity 0.2s; }
+        .poster-img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; transition: opacity 0.2s; }
         .poster-card:hover .poster-img { opacity: 1; }
         
         .tag { position: absolute; top: 8px; left: 8px; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
@@ -873,7 +873,7 @@
                 const pct = s.totalEpisodes > 0 ? Math.round((s.watchedEpisodes/s.totalEpisodes)*100) : 0;
                 return `
                     <div class="poster-card" onclick="openModal(${s.api_id}, '${s.type}', true, ${s.id})" style="flex: 0 0 140px; min-width: 140px; position: relative;">
-                        <img src="${s.posterUrl || s.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                        <img src="${s.posterUrl || s.poster_url}" class="poster-img">
                         <div class="card-info" style="padding: 1rem 0.5rem 0.5rem;">
                             <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
                             <div style="font-size:0.75rem; color:var(--accent); margin-top:2px; font-weight:bold; text-align:right;">${s.watchedEpisodes}/${s.totalEpisodes}</div>
@@ -889,7 +889,7 @@
             upNext.sort((a,b) => b.id - a.id);
             const unHtml = upNext.slice(0, 15).map(s => `
                 <div class="poster-card" onclick="openModal(${s.api_id}, '${s.type}', true, ${s.id})" style="flex: 0 0 140px; min-width: 140px;">
-                    <img src="${s.posterUrl || s.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                    <img src="${s.posterUrl || s.poster_url}" class="poster-img">
                 </div>
             `).join('');
             const unElement = document.getElementById('dash-up-next');
@@ -900,7 +900,7 @@
             recentMovies.sort((a,b) => b.id - a.id);
             const rmHtml = recentMovies.slice(0, 15).map(s => `
                 <div class="poster-card" onclick="openModal(${s.api_id}, '${s.type}', true, ${s.id})" style="flex: 0 0 140px; min-width: 140px;">
-                    <img src="${s.posterUrl || s.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                    <img src="${s.posterUrl || s.poster_url}" class="poster-img">
                 </div>
             `).join('');
             const rmElement = document.getElementById('dash-recent-movies');
@@ -1679,7 +1679,7 @@
             
             const atHtml = airingToday.map(e => `
                 <div class="poster-card" onclick="openModal(${e.api_id}, '${e.type}', true, ${e.id})" style="flex: 0 0 140px; min-width: 140px;">
-                    <img src="${e.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                    <img src="${e.poster_url}" class="poster-img">
                 </div>
             `).join('');
             const atElement = document.getElementById('dash-airing-today');
@@ -1687,7 +1687,7 @@
 
             const twHtml = airingThisWeek.map(e => `
                 <div class="poster-card" onclick="openModal(${e.api_id}, '${e.type}', true, ${e.id})" style="flex: 0 0 140px; min-width: 140px;">
-                    <img src="${e.poster_url}" class="poster-img" style="height: 210px; object-fit: cover;">
+                    <img src="${e.poster_url}" class="poster-img">
                 </div>
             `).join('');
             const twElement = document.getElementById('dash-this-week');
