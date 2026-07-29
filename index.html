@@ -33,8 +33,8 @@
         .tab-content { display: none; padding: 2rem; }
         .tab-content.active { display: block; }
         
-        .show-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; }
-        .poster-card { position: relative; background: var(--card-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 2/3; cursor: pointer; transition: transform 0.2s; }
+        .show-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; align-items: start; }
+        .poster-card { position: relative; background: var(--card-bg); border-radius: 12px; overflow: hidden; aspect-ratio: 2/3; cursor: pointer; transition: transform 0.2s; align-self: start; }
         .poster-card:hover { transform: translateY(-5px); }
         .poster-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; transition: opacity 0.2s; }
         .poster-card:hover .poster-img { opacity: 1; }
@@ -604,7 +604,7 @@
                     const gCalLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encTitle}&dates=${startStr}/${endStr}&details=${encDetails}`;
                     
                     htmlStr += `
-                        <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.id})">
+                        <div class="poster-card" onclick="openModal(${ep.api_id}, '${ep.type}', true, ${ep.show_id})">
                             <img src="${ep.poster_url}" class="poster-img">
                             <div class="tag" style="top:8px; left:8px; background:rgba(0,0,0,0.85); color:var(--accent); font-size:0.85rem; padding:4px 8px; border: 1px solid var(--accent);">${diffText}</div>
                             

@@ -181,7 +181,7 @@ const api = {
             .map(e => {
                 const s = showMap.get(e.show_id);
                 return {
-                    id: e.id, api_id: s.api_id, season_number: e.season_number,
+                    id: e.id, show_id: e.show_id, api_id: s.api_id, season_number: e.season_number,
                     episode_number: e.episode_number, ep_title: e.title, air_date: e.air_date,
                     show_title: s.title, poster_url: s.poster_url, type: s.type
                 };
