@@ -467,6 +467,22 @@
         </div>
     </div>
 
+    <!-- EPISODE MODAL -->
+    <div id="ep-modal" class="modal-overlay" onclick="if(event.target.id==='ep-modal') closeEpModal()">
+        <div class="modal-content" style="max-width: 600px; height: auto; max-height: 85vh;">
+            <button class="modal-close" onclick="closeEpModal()">✕</button>
+            <div style="display:flex; flex-direction:column; gap:1.5rem;">
+                <img id="ep-m-still" style="width: 100%; border-radius: 12px; object-fit: cover; max-height: 250px; display:none; border:1px solid #333;">
+                <div>
+                    <h2 id="ep-m-title" style="margin: 0 0 0.5rem; font-size: 1.5rem;">Loading...</h2>
+                    <div id="ep-m-meta" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem; font-weight:600;"></div>
+                    <div id="ep-m-overview" style="line-height:1.5; margin-bottom:1.5rem; color:#ccc;"></div>
+                    <div id="ep-m-actions" style="display:flex; gap:10px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let localApiIds = [];
         let libraryData = [];
@@ -1384,10 +1400,10 @@
                                 epsHtml += `
                                     <div id="ep-row-${ep.id}" class="ep-row ${ep.is_watched ? 'ep-watched':''}" 
                                          data-watch-count="${ep.watch_count || 0}"
-                                         onclick="toggleEp(event, ${ep.id}, ${tmdbId}, '${type}', ${localDbId})"
+                                         onclick="openEpModal(${ep.id}, ${tmdbId}, '${type}', ${localDbId}, ${sNum}, ${ep.episode_number}, ${ep.watch_count || 0})"
                                          oncontextmenu="event.preventDefault(); markUpTo(${ep.id}, ${s.id}, ${sNum}, ${ep.episode_number}, ${tmdbId}, '${type}', ${localDbId})">
                                         <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
-                                        <div style="display:flex; align-items:center; gap:8px;" id="ep-badge-container-${ep.id}">
+                                        <div style="display:flex; align-items:center; gap:8px;" id="ep-badge-container-${ep.id}" onclick="toggleEp(event, ${ep.id}, ${tmdbId}, '${type}', ${localDbId})">
                                             ${ep.watch_count > 1 ? `<span class="watch-badge" style="background:var(--accent); color:black; font-size:0.75rem; padding:2px 6px; border-radius:10px; font-weight:bold;">x${ep.watch_count}</span>` : ''}
                                             <div class="custom-checkbox"></div>
                                         </div>
@@ -1433,6 +1449,52 @@
             }
         }
         function closeModal(e) { if(e) e.stopPropagation(); document.getElementById('modal').style.display = 'none'; loadLibrary(); loadDash(); }
+
+        async function openEpModal(epId, tmdbId, type, localDbId, seasonNum, epNum, watchCount) {
+            document.getElementById('ep-modal').style.display = 'flex';
+            document.getElementById('ep-m-title').innerText = "Loading...";
+            document.getElementById('ep-m-meta').innerHTML = "";
+            document.getElementById('ep-m-overview').innerText = "";
+            document.getElementById('ep-m-still').style.display = "none";
+            document.getElementById('ep-m-actions').innerHTML = "";
+
+            try {
+                const epData = await ipcRenderer.invoke('get-tmdb-ep-details', tmdbId, seasonNum, epNum);
+                
+                document.getElementById('ep-m-title').innerText = `S${seasonNum}E${epNum}: ${epData.name || "TBA"}`;
+                if(epData.still_path) {
+                    document.getElementById('ep-m-still').src = `https://image.tmdb.org/t/p/w500${epData.still_path}`;
+                    document.getElementById('ep-m-still').style.display = 'block';
+                }
+                
+                let ratingHtml = '';
+                if(epData.vote_average) {
+                    ratingHtml = `<div style="display:inline-flex; align-items:center; gap:5px; margin-left:15px;">
+                        <span style="color:#FFD600; font-size:1.1rem;">★</span>
+                        <span style="font-weight:bold; color:white;">${epData.vote_average.toFixed(1)}</span>
+                    </div>`;
+                }
+                
+                document.getElementById('ep-m-meta').innerHTML = `${epData.air_date || 'Unknown date'} ${epData.runtime ? '• ' + epData.runtime + 'm' : ''} ${ratingHtml}`;
+                document.getElementById('ep-m-overview').innerText = epData.overview || "No overview available.";
+                
+                const isWatched = watchCount > 0;
+                let actions = '';
+                if(isWatched) {
+                    actions += `<button class="btn-action" style="flex:1;" onclick="ipcRenderer.invoke('log-episode', ${epId}).then(()=>{closeEpModal(); openModal(${tmdbId}, '${type}', true, ${localDbId})})">Log Another Watch</button>`;
+                    actions += `<button class="btn-action" style="flex:1; background:#ff3b30; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${epId}).then(()=>{closeEpModal(); openModal(${tmdbId}, '${type}', true, ${localDbId})})">Unmark completely</button>`;
+                } else {
+                    actions += `<button class="btn-action" style="flex:1; background:var(--accent); color:black;" onclick="ipcRenderer.invoke('log-episode', ${epId}).then(()=>{closeEpModal(); openModal(${tmdbId}, '${type}', true, ${localDbId})})">Mark as Watched</button>`;
+                }
+                document.getElementById('ep-m-actions').innerHTML = actions;
+            } catch (err) {
+                document.getElementById('ep-m-title').innerText = "Error loading details";
+            }
+        }
+
+        function closeEpModal() {
+            document.getElementById('ep-modal').style.display = 'none';
+        }
 
         async function saveShowMeta() {
             if(!currentOpenShowId) return;

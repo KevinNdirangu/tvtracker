@@ -220,6 +220,11 @@ const api = {
         return await res.json();
     },
 
+    async getTmdbEpDetails(tmdbId, seasonNum, epNum) {
+        const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${seasonNum}/episode/${epNum}?api_key=${TMDB_KEY}`);
+        return await res.json();
+    },
+
     async addMedia(tmdbId, type, markSeen = false) {
         const data = await this.getTmdbDetails(tmdbId, type);
         const posterUrl = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '';
@@ -514,6 +519,7 @@ window.ipcRenderer = {
         if(channel === 'get-show-details') return api.getShowDetails(...args);
         if(channel === 'get-tmdb-details') return api.getTmdbDetails(...args);
         if(channel === 'get-tmdb-extra') return api.getTmdbExtra(...args);
+        if(channel === 'get-tmdb-ep-details') return api.getTmdbEpDetails(...args);
         if(channel === 'add-media') return api.addMedia(...args);
         if(channel === 'remove-show') return api.removeShow(...args);
         if(channel === 'set-stopped') return api.setStopped(...args);
