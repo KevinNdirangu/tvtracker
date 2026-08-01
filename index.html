@@ -1094,9 +1094,54 @@
         }
 
         async function processCSV(text, statusEl) {
-            const data = Papa.parse(text, { header: true }).data;
-            statusEl.style.color = '#ff9f0a';
-            statusEl.innerText = `Found ${data.length} records. Due to TMDB API limits in the web version, bulk historical syncing is currently processed in background batches.`;
+            const data = Papa.parse(text, { header: true }).data.filter(r => r.show_name);
+            const showsMap = {};
+            data.forEach(row => {
+                if(!showsMap[row.show_name]) showsMap[row.show_name] = [];
+                showsMap[row.show_name].push(row);
+            });
+            const shows = Object.keys(showsMap);
+            statusEl.style.color = '#34c759';
+            statusEl.innerText = `Found ${shows.length} shows. Starting import...`;
+            
+            for(let i = 0; i < shows.length; i++) {
+                const showName = shows[i];
+                statusEl.innerText = `Importing ${i+1}/${shows.length}: ${showName}...`;
+                
+                try {
+                    // search TMDB
+                    const results = await window.ipcRenderer.invoke('search-tmdb', showName);
+                    if(results && results.length > 0) {
+                        const tmdbId = results[0].id;
+                        const type = results[0].media_type === 'movie' ? 'movie' : 'tv';
+                        
+                        // add media
+                        await window.ipcRenderer.invoke('add-media', tmdbId, type, false);
+                        
+                        // fetch localId directly from supabase client
+                        const { data: showData } = await supabaseClient.from('shows').select('id').eq('api_id', tmdbId).maybeSingle();
+                        if (showData) {
+                            const localId = showData.id;
+                            const { data: episodes } = await supabaseClient.from('episodes').select('id, season_number, episode_number').eq('show_id', localId);
+                            
+                            const epsMap = {};
+                            if (episodes) {
+                                episodes.forEach(ep => epsMap[`${ep.season_number}-${ep.episode_number}`] = ep.id);
+                            }
+                            
+                            for(const row of showsMap[showName]) {
+                                const key = `${row.season}-${row.episode}`;
+                                const epId = epsMap[key];
+                                if(epId) {
+                                    await window.ipcRenderer.invoke('log-episode', epId, row.date_watched);
+                                }
+                            }
+                        }
+                    }
+                } catch(e) { console.error(e); }
+                await new Promise(r => setTimeout(r, 600)); // Respect TMDB limits
+            }
+            statusEl.innerText = "Import Complete!";
             document.getElementById('csv-upload').value = "";
             document.querySelector('#csv-upload').disabled = false;
         }
