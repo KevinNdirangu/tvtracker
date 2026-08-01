@@ -1,0 +1,14 @@
+{
+  "name": "tv-time-tracker",
+  "version": "1.0.0",
+  "description": "Local media tracker and database",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "electron": "^30.0.0",
+    "papaparse": "^5.5.4"
+  }
+}

@@ -1094,16 +1094,36 @@
         }
 
         async function processCSV(text, statusEl) {
-            const data = Papa.parse(text, { header: true }).data.filter(r => r.show_name);
+            const rawData = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+            const data = rawData.map(r => {
+                let cleanR = {};
+                for (let k in r) {
+                    if (k) cleanR[k.trim().toLowerCase()] = r[k];
+                }
+                return cleanR;
+            }).filter(r => r.show_name || r.series_name || r.title);
+
             const showsMap = {};
             data.forEach(row => {
-                if(!showsMap[row.show_name]) showsMap[row.show_name] = [];
-                showsMap[row.show_name].push(row);
+                const sName = row.show_name || row.series_name || row.title;
+                if(!showsMap[sName]) showsMap[sName] = [];
+                showsMap[sName].push(row);
             });
             const shows = Object.keys(showsMap);
+
+            if (shows.length === 0) {
+                statusEl.style.color = '#ff3b30';
+                statusEl.innerText = "Error: No valid shows or movies found in the CSV. Please check the column headers.";
+                document.getElementById('csv-upload').value = "";
+                document.querySelector('#csv-upload').disabled = false;
+                return;
+            }
+
             statusEl.style.color = '#34c759';
             statusEl.innerText = `Found ${shows.length} shows. Starting import...`;
             
+            const watchHistoryBuffer = [];
+
             for(let i = 0; i < shows.length; i++) {
                 const showName = shows[i];
                 statusEl.innerText = `Importing ${i+1}/${shows.length}: ${showName}...`;
@@ -1130,10 +1150,13 @@
                             }
                             
                             for(const row of showsMap[showName]) {
-                                const key = `${row.season}-${row.episode}`;
+                                const rSeason = row.season || row.s_no;
+                                const rEpisode = row.episode || row.ep_no;
+                                const key = `${rSeason}-${rEpisode}`;
                                 const epId = epsMap[key];
                                 if(epId) {
-                                    await window.ipcRenderer.invoke('log-episode', epId, row.date_watched);
+                                    const rDate = row.date_watched || row.created_at;
+                                    watchHistoryBuffer.push({ episode_id: epId, watched_at: rDate });
                                 }
                             }
                         }
@@ -1141,6 +1164,14 @@
                 } catch(e) { console.error(e); }
                 await new Promise(r => setTimeout(r, 600)); // Respect TMDB limits
             }
+
+            statusEl.innerText = "Chunking and Uploading Watch History...";
+            for (let i = 0; i < watchHistoryBuffer.length; i += 500) {
+                const chunk = watchHistoryBuffer.slice(i, i + 500);
+                await supabaseClient.from('watch_history').insert(chunk);
+                statusEl.innerText = `Uploaded ${Math.min(i + 500, watchHistoryBuffer.length)} / ${watchHistoryBuffer.length} history records...`;
+            }
+
             statusEl.innerText = "Import Complete!";
             document.getElementById('csv-upload').value = "";
             document.querySelector('#csv-upload').disabled = false;
