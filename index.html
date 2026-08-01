@@ -1150,8 +1150,14 @@
                             }
                             
                             for(const row of showsMap[showName]) {
-                                const rSeason = row.season || row.s_no;
-                                const rEpisode = row.episode || row.ep_no;
+                                let rSeason = row.season || row.s_no;
+                                let rEpisode = row.episode || row.ep_no;
+                                if ((!rSeason || !rEpisode) && type === 'movie') {
+                                    rSeason = 1;
+                                    rEpisode = 1;
+                                }
+                                if (!rSeason || !rEpisode) continue;
+
                                 const key = `${rSeason}-${rEpisode}`;
                                 const epId = epsMap[key];
                                 if(epId) {
