@@ -1639,7 +1639,7 @@
                                          data-watch-count="${ep.watch_count || 0}"
                                          onclick="toggleEp(event, ${ep.id}, ${tmdbId}, '${type}', ${localDbId})"
                                          oncontextmenu="event.preventDefault(); markUpTo(${ep.id}, ${s.id}, ${sNum}, ${ep.episode_number}, ${tmdbId}, '${type}', ${localDbId})">
-                                        <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
+                                        <div style="flex-grow:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
                                         <div style="display:flex; align-items:center; gap:12px;" id="ep-badge-container-${ep.id}">
                                             ${ep.watch_count > 1 ? `<span class="watch-badge" style="background:var(--accent); color:black; font-size:0.75rem; padding:2px 6px; border-radius:10px; font-weight:bold;">x${ep.watch_count}</span>` : ''}
                                             <div class="custom-checkbox"></div>
@@ -1652,7 +1652,7 @@
                             } else {
                                 epsHtml += `
                                     <div class="ep-row" style="opacity:0.3; cursor:not-allowed;" title="Airs on ${ep.air_date || 'TBA'}">
-                                        <div style="flex-grow:1;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
+                                        <div style="flex-grow:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;"><span style="color:#666; margin-right:10px; font-weight:bold;">E${String(ep.episode_number).padStart(2,'0')}</span> ${ep.title}</div>
                                         <div style="font-size:0.75rem; color:#aaa;">${ep.air_date || 'TBA'}</div>
                                     </div>
                                 `;
