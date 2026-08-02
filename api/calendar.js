@@ -56,6 +56,7 @@ module.exports = async function handler(req, res) {
 
         res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename="tvtracker.ics"');
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
         res.status(200).send(ics);
     } catch (err) {
         res.status(500).json({ error: err.message });

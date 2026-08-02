@@ -432,8 +432,9 @@
                             alert('Google Calendar subscription requires a PUBLIC URL. Since you are running this locally, Google cannot reach your computer.\n\nPlease deploy your app (e.g., to Vercel) to use the subscription feature, or use "Download .ics" instead to manually import it.');
                             return;
                         }
-                        // Append a dummy parameter to help Google Calendar identify it as a valid file
-                        if(!url.includes('?')) url += '?ext=.ics';
+                        // Append a dummy parameter to help Google Calendar identify it as a valid file, and a timestamp to bypass Google's aggressive caching
+                        if(!url.includes('?')) url += '?ext=.ics&nocache=' + new Date().getTime();
+                        else url += '&nocache=' + new Date().getTime();
                         url = url.replace('https://', 'webcal://').replace('http://', 'webcal://');
                         window.open('https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(url), '_blank');
                     }
