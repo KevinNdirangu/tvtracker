@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>TV Time DB</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="script.js"></script>
     <style>
@@ -801,6 +802,7 @@
                     if(!t) {
                         const lib = await api.getLibrary();
                         window.tvt_library = lib;
+                        localforage.setItem('tvt_lib', lib);
                     }
                     if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
                 } catch(e) {
@@ -850,16 +852,32 @@
         }
 
         async function loadLibrary() {
+            // Try in-memory first for fastest tab switching
             if(window.tvt_library) {
-                try {
-                    libraryData = window.tvt_library;
+                libraryData = window.tvt_library;
+                renderLibraryGrid();
+                renderLibraryCarousels();
+            } else {
+                // Try IndexedDB (localforage) for offline / fast startup
+                const cached = await localforage.getItem('tvt_lib');
+                if(cached) {
+                    window.tvt_library = cached;
+                    libraryData = cached;
                     renderLibraryGrid();
                     renderLibraryCarousels();
-                } catch(e){}
+                }
             }
             
-            libraryData = await ipcRenderer.invoke('get-library');
-            if(libraryData) window.tvt_library = libraryData;
+            // Always fetch fresh in background
+            const freshData = await ipcRenderer.invoke('get-library');
+            if(freshData) {
+                window.tvt_library = freshData;
+                libraryData = freshData;
+                localforage.setItem('tvt_lib', freshData);
+                // Optionally re-render if we want to show new changes silently
+                renderLibraryGrid();
+                renderLibraryCarousels();
+            }
             
             const gSelect = document.getElementById('genreSelect');
             if(gSelect && libraryData) {
