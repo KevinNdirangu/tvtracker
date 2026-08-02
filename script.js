@@ -160,6 +160,7 @@ const api = {
                 is_stopped: s.is_stopped, user_rating: s.user_rating, user_notes: s.user_notes, 
                 custom_tags: s.custom_tags, timezone_offset: s.timezone_offset,
                 watchedEpisodes: watched, airedEpisodes: aired, runtime, 
+                dbEpisodeCount: s.episodes ? s.episodes.length : 0,
                 lastWatched: lastWatched > 0 ? new Date(lastWatched).toISOString() : null
             };
         });

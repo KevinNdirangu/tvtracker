@@ -629,7 +629,7 @@
             status.innerText = "";
             
             // Find broken shows (0 episodes in DB)
-            const brokenShows = libraryData.filter(s => s.episodes.length === 0);
+            const brokenShows = libraryData.filter(s => s.dbEpisodeCount === 0);
             
             if (brokenShows.length === 0) {
                 status.innerText = "Your library is perfectly healthy! No missing data found.";
