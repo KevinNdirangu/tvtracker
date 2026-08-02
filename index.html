@@ -963,7 +963,7 @@
                     if(curLibState === 'stopped') return i.is_stopped === 1;
                     if(i.is_stopped === 1) return false; // Hide stopped from active views
                     
-                    if(curLibState === 'finished') return i.totalEpisodes > 0 && i.watchedEpisodes === i.totalEpisodes && (i.status === 'Ended' || i.status === 'Canceled');
+                    if(curLibState === 'finished') return i.airedEpisodes > 0 && i.watchedEpisodes >= i.airedEpisodes && (i.status === 'Ended' || i.status === 'Canceled');
                     if(curLibState === 'uptodate') return i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled';
                     if(curLibState === 'watching') return i.watchedEpisodes < i.airedEpisodes;
                 }
@@ -994,7 +994,7 @@
 
             let htmlStr = '';
             filtered.forEach(i => {
-                const pct = i.totalEpisodes > 0 ? (i.watchedEpisodes / i.totalEpisodes) * 100 : 0;
+                const pct = i.airedEpisodes > 0 ? (i.watchedEpisodes / i.airedEpisodes) * 100 : 0;
                 
                 let statusColor = '#8e8e93'; // grey
                 let statusText = 'Not Started';
@@ -1003,7 +1003,7 @@
                     else { statusColor = '#ff9f0a'; statusText = 'Watchlist'; }
                 } else {
                     if(i.is_stopped === 1) { statusColor = '#ff3b30'; statusText = 'Stopped'; }
-                    else if(i.totalEpisodes > 0 && i.watchedEpisodes === i.totalEpisodes && (i.status === 'Ended' || i.status === 'Canceled')) { statusColor = '#34c759'; statusText = 'Finished'; }
+                    else if(i.airedEpisodes > 0 && i.watchedEpisodes >= i.airedEpisodes && (i.status === 'Ended' || i.status === 'Canceled')) { statusColor = '#34c759'; statusText = 'Finished'; }
                     else if(i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled') { statusColor = '#0a84ff'; statusText = 'Up to Date'; }
                     else if(i.watchedEpisodes > 0) { statusColor = '#FFD600'; statusText = 'Watching'; }
                 }
@@ -1014,7 +1014,7 @@
                         <div class="tag" style="top:8px; right:8px; background:${statusColor}; color:black; font-weight:900;">${statusText}</div>
                         <div class="card-info">
                             <h2 class="show-title">${i.title}</h2>
-                            ${i.type === 'tv' ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.totalEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : ''}
+                            ${i.type === 'tv' ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.airedEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : ''}
                         </div>
                     </div>
                 `;
@@ -2047,7 +2047,7 @@
                     const watchedInPeriod = yearFilter === 'all' ? i.watchedEpisodes : (showWatchCounts[i.id] || 0);
                     
                     if (watchedInPeriod > 0) {
-                        if (i.watchedEpisodes >= i.totalEpisodes && i.totalEpisodes > 0 && i.status === 'Ended') {
+                        if (i.watchedEpisodes >= i.airedEpisodes && i.airedEpisodes > 0 && (i.status === 'Ended' || i.status === 'Canceled')) {
                             tvSeen++;
                         } else {
                             tvWatching++;
