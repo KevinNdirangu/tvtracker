@@ -279,6 +279,7 @@
                 <option value="progressAsc">Progress (0% &rarr; 100%)</option>
                 <option value="progressDesc">Progress (100% &rarr; 0%)</option>
                 <option value="unwatchedDesc">Most Unwatched Episodes</option>
+                <option value="missingData">Missing Data First (0/0)</option>
             </select>
             <select id="genreSelect" onchange="renderLibraryGrid()" style="background:var(--card-bg); color:white; border:1px solid #333; border-radius:8px; padding:0.4rem; margin-right:10px; outline:none;">
                 <option value="all">All Genres</option>
@@ -996,6 +997,12 @@
                     const unB = Math.max(0, b.airedEpisodes - b.watchedEpisodes);
                     if (unA === unB) return b.watchedEpisodes - a.watchedEpisodes;
                     return unB - unA;
+                }
+                if(s === 'missingData') {
+                    const aMissing = a.airedEpisodes === 0 ? 1 : 0;
+                    const bMissing = b.airedEpisodes === 0 ? 1 : 0;
+                    if (aMissing === bMissing) return a.title.localeCompare(b.title);
+                    return bMissing - aMissing;
                 }
                 if(s === 'lastWatchedDesc') {
                     const timeA = a.lastWatched ? new Date(a.lastWatched).getTime() : 0;
