@@ -385,6 +385,21 @@
                     <button class="btn-action" style="flex: 1; background: #34c759; color: black; font-weight: bold;" onclick="exportFullData('csv')">CSV</button>
                 </div>
             </div>
+            
+            <!-- Auto Heal -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; grid-column: 1 / -1;">
+                <div>
+                    <h4 style="margin: 0 0 0.5rem 0;">Auto-Heal Library Database</h4>
+                    <div style="color: var(--text-muted); font-size: 0.85rem;">Scans your entire library for shows missing episode data (0/0) and automatically fetches and restores them from the TMDB database.</div>
+                    <div id="heal-status" style="color: var(--accent); font-size: 0.85rem; margin-top: 0.5rem; font-weight: bold;"></div>
+                    <div id="heal-progress-container" style="display:none; width:100%; height:8px; background:#222; border-radius:4px; margin-top:10px; overflow:hidden;">
+                        <div id="heal-progress-bar" style="width:0%; height:100%; background:var(--accent); transition:width 0.2s;"></div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <button class="btn-action" id="btn-heal" style="width:100%;" onclick="runAutoHeal()">Run Auto-Heal</button>
+                </div>
+            </div>
 
             <!-- GitHub Gist Calendar Subscription -->
             <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; grid-column: 1 / -1;">
@@ -595,6 +610,67 @@
             } else {
                 status.innerText = "Failed to sync timezones.";
             }
+        }
+        
+        // --- HEALING LOGIC ---
+        async function runAutoHeal() {
+            const btn = document.getElementById('btn-heal');
+            const status = document.getElementById('heal-status');
+            const barCont = document.getElementById('heal-progress-container');
+            const bar = document.getElementById('heal-progress-bar');
+            
+            if (!libraryData || libraryData.length === 0) {
+                status.innerText = "Please load the library first.";
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Scanning Library...";
+            status.innerText = "";
+            
+            // Find broken shows (0 episodes in DB)
+            const brokenShows = libraryData.filter(s => s.episodes.length === 0);
+            
+            if (brokenShows.length === 0) {
+                status.innerText = "Your library is perfectly healthy! No missing data found.";
+                btn.disabled = false;
+                btn.innerText = "Run Auto-Heal";
+                return;
+            }
+
+            status.innerText = `Found ${brokenShows.length} broken shows. Healing started...`;
+            barCont.style.display = "block";
+            bar.style.width = "0%";
+            
+            let i = 0;
+            for (const show of brokenShows) {
+                i++;
+                btn.innerText = `Healing ${i} / ${brokenShows.length}`;
+                status.innerText = `Healing: ${show.title}...`;
+                bar.style.width = `${(i / brokenShows.length) * 100}%`;
+                
+                // This triggers the native background healing in script.js (getShowDetails)
+                try {
+                    await ipcRenderer.invoke('get-show-details', show.id);
+                } catch(e) {
+                    console.error("Error healing", show.title, e);
+                }
+                
+                // Wait slightly to not overwhelm IPC/TMDB
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            
+            status.innerText = `Successfully healed ${brokenShows.length} shows! Reloading Library...`;
+            btn.innerText = "Heal Complete";
+            
+            await loadLibrary();
+            
+            setTimeout(() => {
+                barCont.style.display = "none";
+                status.innerText = "";
+                btn.disabled = false;
+                btn.innerText = "Run Auto-Heal";
+            }, 5000);
         }
 
         async function loadCalendar() {
