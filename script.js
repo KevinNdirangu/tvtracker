@@ -134,13 +134,22 @@ const api = {
             if (s.episodes) {
                 s.episodes.forEach(ep => {
                     if (ep.season_number > 0) {
-                        if (ep.air_date && new Date(ep.air_date) <= new Date()) aired++;
+                        let hasAired = false;
+                        if (ep.air_date && new Date(ep.air_date) <= new Date()) {
+                            hasAired = true;
+                        }
+                        
                         if (ep.watch_history && ep.watch_history.length > 0) {
                             watched++;
+                            hasAired = true;
                             runtime += (ep.runtime || 0);
                             const wAt = new Date(ep.watch_history[0].watched_at).getTime();
                             if (wAt > lastWatched) lastWatched = wAt;
+                        } else if (!hasAired && s.type === 'movie' && !ep.air_date) {
+                            hasAired = true;
                         }
+                        
+                        if (hasAired) aired++;
                     }
                 });
             }
