@@ -1152,7 +1152,7 @@
                         <div class="tag" style="top:8px; right:8px; background:${statusColor}; color:black; font-weight:900;">${statusText}</div>
                         <div class="card-info">
                             <h2 class="show-title">${i.title}</h2>
-                            ${i.type === 'tv' ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.airedEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : ''}
+                            ${i.type === 'tv' ? (i.airedEpisodes > 0 ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.airedEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : `<div style="font-size:0.8rem; color:#aaa; font-style:italic;">${i.status || 'TBA'}</div>`) : ''}
                         </div>
                     </div>
                 `;
