@@ -276,6 +276,9 @@
                 <option value="ratingDesc">Highest Rated</option>
                 <option value="episodesDesc">Most Watched</option>
                 <option value="notWatchedAsc">Not Watched First</option>
+                <option value="progressAsc">Progress (0% &rarr; 100%)</option>
+                <option value="progressDesc">Progress (100% &rarr; 0%)</option>
+                <option value="unwatchedDesc">Most Unwatched Episodes</option>
             </select>
             <select id="genreSelect" onchange="renderLibraryGrid()" style="background:var(--card-bg); color:white; border:1px solid #333; border-radius:8px; padding:0.4rem; margin-right:10px; outline:none;">
                 <option value="all">All Genres</option>
@@ -980,6 +983,19 @@
                 if(s === 'notWatchedAsc') {
                     if (a.watchedEpisodes === b.watchedEpisodes) return a.title.localeCompare(b.title);
                     return a.watchedEpisodes - b.watchedEpisodes;
+                }
+                if(s === 'progressAsc' || s === 'progressDesc') {
+                    // Shows with 0 aired episodes but >0 watched are technically 100% (or broken).
+                    const pctA = a.airedEpisodes > 0 ? a.watchedEpisodes / a.airedEpisodes : (a.watchedEpisodes > 0 ? 1.0 : 0.0);
+                    const pctB = b.airedEpisodes > 0 ? b.watchedEpisodes / b.airedEpisodes : (b.watchedEpisodes > 0 ? 1.0 : 0.0);
+                    if (pctA === pctB) return b.watchedEpisodes - a.watchedEpisodes; // Tiebreaker
+                    return s === 'progressAsc' ? pctA - pctB : pctB - pctA;
+                }
+                if(s === 'unwatchedDesc') {
+                    const unA = Math.max(0, a.airedEpisodes - a.watchedEpisodes);
+                    const unB = Math.max(0, b.airedEpisodes - b.watchedEpisodes);
+                    if (unA === unB) return b.watchedEpisodes - a.watchedEpisodes;
+                    return unB - unA;
                 }
                 if(s === 'lastWatchedDesc') {
                     const timeA = a.lastWatched ? new Date(a.lastWatched).getTime() : 0;
