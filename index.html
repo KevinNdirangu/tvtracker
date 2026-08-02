@@ -800,7 +800,7 @@
                     const t = document.getElementById('libSearchInput').value;
                     if(!t) {
                         const lib = await api.getLibrary();
-                        localStorage.setItem('tvt_lib', JSON.stringify(lib));
+                        window.tvt_library = lib;
                     }
                     if(document.getElementById('tab-tracking').classList.contains('active')) loadLibrary();
                 } catch(e) {
@@ -850,17 +850,16 @@
         }
 
         async function loadLibrary() {
-            const cached = localStorage.getItem('tvt_library');
-            if(cached) {
+            if(window.tvt_library) {
                 try {
-                    libraryData = JSON.parse(cached);
+                    libraryData = window.tvt_library;
                     renderLibraryGrid();
                     renderLibraryCarousels();
                 } catch(e){}
             }
             
             libraryData = await ipcRenderer.invoke('get-library');
-            if(libraryData) localStorage.setItem('tvt_library', JSON.stringify(libraryData));
+            if(libraryData) window.tvt_library = libraryData;
             
             const gSelect = document.getElementById('genreSelect');
             if(gSelect && libraryData) {
