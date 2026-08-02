@@ -625,14 +625,14 @@
             }
 
             btn.disabled = true;
-            btn.innerText = "Scanning Library...";
+            btn.innerText = "Analyzing...";
             status.innerText = "";
             
-            // Find broken shows (0 episodes in DB)
-            const brokenShows = libraryData.filter(s => s.dbEpisodeCount === 0);
+            // Find broken shows (0 episodes in DB) that are 'Not Started'
+            const brokenShows = libraryData.filter(s => s.dbEpisodeCount === 0 && s.is_stopped !== 1 && s.type !== 'movie');
             
             if (brokenShows.length === 0) {
-                status.innerText = "Your library is perfectly healthy! No missing data found.";
+                status.innerText = "Your Not Started shows are perfectly healthy! No missing data found.";
                 btn.disabled = false;
                 btn.innerText = "Run Auto-Heal";
                 return;
