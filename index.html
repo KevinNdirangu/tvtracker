@@ -109,13 +109,21 @@
             #tab-dashboard > div:first-of-type { grid-template-columns: 1fr !important; gap: 0.5rem !important; }
             h3 + div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
             
-            .modal-content { height: 92vh; max-height: none; width: 100%; margin: 0; position: absolute; bottom: 0; border-radius: 24px 24px 0 0; padding: 1.5rem; padding-top: 2rem; animation: slideUp 0.3s ease-out; }
+            .modal-content { height: 92vh; max-height: none; width: 100%; margin: 0; position: absolute; bottom: 0; border-radius: 24px 24px 0 0; padding: 0 !important; animation: slideUp 0.3s ease-out; }
             @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
             .modal-close { top: 1rem; right: 1rem; z-index: 10; font-size: 2rem; background: rgba(0,0,0,0.6); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1; }
-            #m-poster { width: 140px !important; margin: 0 auto; display: block; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
-            .modal-content > div:nth-child(2) { flex-direction: column !important; gap: 1.2rem !important; align-items: center; text-align: center; margin-bottom: 1.5rem !important; }
+            #m-poster { width: 120px !important; margin: 0 auto; display: block; border-radius: 12px; transform: translateY(0) !important; margin-bottom: -1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+            
+            /* Target Header Background Area */
+            .modal-content > div:nth-child(2) { flex-direction: column !important; gap: 1.2rem !important; align-items: center; text-align: center; padding-top: 3rem !important; border-radius: 24px 24px 0 0 !important; }
+            
+            /* Target Content Area */
+            .modal-content > div:nth-child(3) { padding: 2rem 1.5rem !important; }
+            /* Target the grid inside Content Area */
+            .modal-content > div:nth-child(3) > div { grid-template-columns: 1fr !important; gap: 2rem !important; }
+
             #m-title { font-size: 1.6rem !important; margin-bottom: 0.2rem; word-break: break-word; line-height: 1.2; }
-            #m-actions { flex-direction: column; width: 100%; gap: 0.8rem; }
+            #m-actions { flex-direction: column; width: 100%; gap: 0.8rem; justify-content: center; }
             .btn-action, .btn-delete { width: 100%; box-sizing: border-box; max-width: none; padding: 0.9rem; font-size: 1rem; }
             
             #gcal-actions { flex-direction: column; }
@@ -447,29 +455,57 @@
 
     <!-- UNIVERSAL MODAL -->
     <div id="modal" class="modal-overlay" onclick="closeModal(event)">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <button class="modal-close" onclick="closeModal(event)">✕</button>
-            <div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
-                <img id="m-poster" style="width: 150px; border-radius: 8px;">
-                <div>
-                    <h1 id="m-title" style="margin: 0 0 0.5rem; font-size: 2rem;">Loading...</h1>
-                    <div id="m-meta" style="color: var(--accent); margin-bottom: 1rem; font-weight: bold;"></div>
-                    <p id="m-overview" style="color: #ccc; line-height: 1.5; margin-bottom: 1rem;"></p>
-                    <div id="m-extra-meta" style="margin-bottom: 1rem; display:none;">
-                        <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-                            <label>Rating:</label>
-                            <input type="number" id="m-rating" min="0" max="10" style="width:50px; background:#111; color:white; border:1px solid #333; padding:4px; border-radius:4px; outline:none;"> <span>/ 10</span>
-                            <label style="margin-left:20px;">Tags:</label>
-                            <input type="text" id="m-tags" placeholder="anime, favs" style="flex-grow:1; background:#111; color:white; border:1px solid #333; padding:4px; border-radius:4px; outline:none;">
-                        </div>
-                        <textarea id="m-notes" placeholder="Personal notes or reviews..." style="width:100%; height:60px; background:#111; color:white; border:1px solid #333; padding:8px; box-sizing:border-box; margin-bottom:10px; resize:none; border-radius:8px; outline:none; font-family:inherit;"></textarea>
-                        <button class="btn-action" style="padding:6px 12px; font-size:0.8rem; background:#333; color:white;" onclick="saveShowMeta()">Save Notes & Rating</button>
-                        <span id="m-meta-saved" style="color:#34c759; font-size:0.85rem; display:none; margin-left:10px; font-weight:bold;">Saved!</span>
-                    </div>
-                    <div id="m-actions" style="display: flex; gap: 1rem;"></div>
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 900px; padding: 0;">
+            
+            <!-- Header Background Area (Dynamic Poster Blur could go here, for now dark) -->
+            <div style="position: relative; background: #111; padding: 2rem; border-bottom: 1px solid #222; border-radius: 16px 16px 0 0; display: flex; gap: 2rem; align-items: flex-end;">
+                <button class="modal-close" style="position: absolute; top: 1rem; right: 1rem;" onclick="closeModal(event)">✕</button>
+                <img id="m-poster" style="width: 160px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transform: translateY(1rem);">
+                <div style="flex-grow: 1;">
+                    <h1 id="m-title" style="margin: 0 0 0.5rem; font-size: 2.2rem; line-height: 1.2;">Loading...</h1>
+                    <div id="m-meta" style="color: var(--accent); margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem;"></div>
+                    <div id="m-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;"></div>
                 </div>
             </div>
-            <div id="m-body"></div>
+
+            <!-- Content Area -->
+            <div style="padding: 3rem 2rem 2rem 2rem; background: var(--bg-color);">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+                    
+                    <!-- Left Column: Overview and Episodes -->
+                    <div>
+                        <h3 style="margin-top:0;">Overview</h3>
+                        <p id="m-overview" style="color: #ccc; line-height: 1.6; margin-bottom: 2rem;"></p>
+                        
+                        <h3 style="margin-top:0;">Episodes</h3>
+                        <div id="m-body"></div>
+                    </div>
+
+                    <!-- Right Column: Details & Notes -->
+                    <div>
+                        <div id="m-extra-meta" style="display:none; background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333;">
+                            <h4 style="margin:0 0 1rem 0;">Your Details</h4>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display:block; margin-bottom:0.5rem; color:#aaa; font-size:0.9rem;">Rating</label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="number" id="m-rating" min="0" max="10" style="width:60px; background:#111; color:white; border:1px solid #333; padding:8px; border-radius:6px; outline:none; font-size:1rem;"> 
+                                    <span style="color:#aaa;">/ 10</span>
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display:block; margin-bottom:0.5rem; color:#aaa; font-size:0.9rem;">Tags</label>
+                                <input type="text" id="m-tags" placeholder="e.g. anime, favorites" style="width:100%; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:8px; border-radius:6px; outline:none; font-size:0.95rem;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display:block; margin-bottom:0.5rem; color:#aaa; font-size:0.9rem;">Notes</label>
+                                <textarea id="m-notes" placeholder="Personal notes or reviews..." style="width:100%; height:80px; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:8px; resize:none; border-radius:6px; outline:none; font-family:inherit; font-size:0.95rem;"></textarea>
+                            </div>
+                            <button class="btn-action" style="width:100%; padding:10px; background:#333; color:white;" onclick="saveShowMeta()">Save Details</button>
+                            <div id="m-meta-saved" style="color:#34c759; font-size:0.85rem; display:none; text-align:center; margin-top:10px; font-weight:bold;">Saved!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
