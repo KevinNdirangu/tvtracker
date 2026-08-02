@@ -289,6 +289,7 @@
             <button class="sub-btn active" onclick="setLibState('watching', this)">Watching</button>
             <button class="sub-btn" onclick="setLibState('uptodate', this)">Up to Date</button>
             <button class="sub-btn" onclick="setLibState('finished', this)">Finished</button>
+            <button class="sub-btn" onclick="setLibState('notstarted', this)">Not Started</button>
             <button class="sub-btn" onclick="setLibState('stopped', this)">Stopped</button>
         </div>
         <div class="sub-nav" id="filter-movie" style="display:none; border:none; padding:0;">
@@ -964,8 +965,9 @@
                     if(i.is_stopped === 1) return false; // Hide stopped from active views
                     
                     if(curLibState === 'finished') return i.airedEpisodes > 0 && i.watchedEpisodes >= i.airedEpisodes && (i.status === 'Ended' || i.status === 'Canceled');
-                    if(curLibState === 'uptodate') return i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled';
-                    if(curLibState === 'watching') return i.watchedEpisodes < i.airedEpisodes;
+                    if(curLibState === 'uptodate') return i.watchedEpisodes > 0 && i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled';
+                    if(curLibState === 'watching') return i.watchedEpisodes > 0 && i.watchedEpisodes < i.airedEpisodes;
+                    if(curLibState === 'notstarted') return i.watchedEpisodes === 0;
                 }
                 return false;
             });
@@ -1003,6 +1005,7 @@
                     else { statusColor = '#ff9f0a'; statusText = 'Watchlist'; }
                 } else {
                     if(i.is_stopped === 1) { statusColor = '#ff3b30'; statusText = 'Stopped'; }
+                    else if(i.watchedEpisodes === 0) { statusColor = '#8e8e93'; statusText = 'Not Started'; }
                     else if(i.airedEpisodes > 0 && i.watchedEpisodes >= i.airedEpisodes && (i.status === 'Ended' || i.status === 'Canceled')) { statusColor = '#34c759'; statusText = 'Finished'; }
                     else if(i.watchedEpisodes >= i.airedEpisodes && i.status !== 'Ended' && i.status !== 'Canceled') { statusColor = '#0a84ff'; statusText = 'Up to Date'; }
                     else if(i.watchedEpisodes > 0) { statusColor = '#FFD600'; statusText = 'Watching'; }
