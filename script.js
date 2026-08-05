@@ -415,6 +415,32 @@ const api = {
         return { success: true, count: updatedCount };
     },
     
+    async revertLibraryTimezones() {
+        const { data: shows } = await supabaseClient.from('shows').select('id, api_id, type').eq('timezone_offset', 1);
+        if(!shows || shows.length === 0) return { success: true, count: 0 };
+        
+        let revertedCount = 0;
+        
+        for (const show of shows) {
+            await supabaseClient.from('shows').update({ timezone_offset: 0 }).eq('id', show.id);
+            
+            const { data: eps } = await supabaseClient.from('episodes').select('id, air_date').eq('show_id', show.id).neq('air_date', '');
+            if(eps) {
+                for(let i = 0; i < eps.length; i+=100) {
+                    const chunk = eps.slice(i, i+100);
+                    const updates = chunk.map(e => {
+                        const d = new Date(e.air_date);
+                        d.setDate(d.getDate() - 1);
+                        return { id: e.id, air_date: d.toISOString().split('T')[0] };
+                    });
+                    await supabaseClient.from('episodes').upsert(updates);
+                }
+            }
+            revertedCount++;
+        }
+        return { success: true, count: revertedCount };
+    },
+
     async toggleTimezoneShift(localId) {
         const { data: show } = await supabaseClient.from('shows').select('timezone_offset').eq('id', localId).single();
         if(!show) return;
@@ -539,6 +565,7 @@ window.ipcRenderer = {
         if(channel === 'set-setting') return api.setSetting(...args);
         if(channel === 'update-show-meta') return api.updateShowMeta(...args);
         if(channel === 'sync-library-timezones') return api.syncLibraryTimezones();
+        if(channel === 'revert-library-timezones') return api.revertLibraryTimezones();
         if(channel === 'toggle-timezone-offset') return api.toggleTimezoneShift(...args);
         if(channel === 'get-stats') return api.getStats();
         if(channel === 'log-season') return api.logSeason(...args);

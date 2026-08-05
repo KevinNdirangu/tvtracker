@@ -350,6 +350,7 @@
                 <span>Enable Auto-Timezone Shift for newly added shows</span>
             </label>
             <button class="btn-action" style="margin-top:15px; width:100%; padding:12px;" id="btn-sync-tz" onclick="syncLibraryTimezones()">Run Timezone Fix on Existing Library</button>
+            <button class="btn-action" style="margin-top:10px; width:100%; padding:12px; background-color:#ff3b30; color:white;" id="btn-revert-tz" onclick="revertLibraryTimezones()">Revert Timezone Fix (Back to Original Date)</button>
             <p id="sync-tz-status" style="color:var(--accent); margin-top:10px; text-align:center; font-weight:bold;"></p>
         </div>
         
@@ -613,6 +614,27 @@
             }
         }
         
+        async function revertLibraryTimezones() {
+            const btn = document.getElementById('btn-revert-tz');
+            const status = document.getElementById('sync-tz-status');
+            btn.disabled = true;
+            btn.innerText = "Reverting...";
+            status.innerText = "Please wait, reverting timezone shifts...";
+            
+            const res = await ipcRenderer.invoke('revert-library-timezones');
+            btn.disabled = false;
+            btn.innerText = "Revert Timezone Fix (Back to Original Date)";
+            
+            if(res.success) {
+                status.innerText = `Success! Reverted ${res.count} shows back to their original dates.`;
+                loadLibrary();
+                loadDash();
+                if(document.getElementById('tab-calendar').classList.contains('active')) loadCalendar();
+            } else {
+                status.innerText = "Failed to revert timezones.";
+            }
+        }
+
         // --- HEALING LOGIC ---
         async function runAutoHeal() {
             const btn = document.getElementById('btn-heal');
