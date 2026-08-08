@@ -1567,9 +1567,6 @@
                         }
                         
                         let seenDateHtml = '';
-                        if (s.lastWatched && s.watchedEpisodes > 0) {
-                            seenDateHtml = `<div style="font-size:0.85rem; color:#aaa; margin-top:5px; margin-bottom:5px;">Seen on: ${new Date(s.lastWatched).toLocaleDateString()}</div>`;
-                        }
                         
                         const ls = document.getElementById('m-live-status');
                         if (ls) ls.innerHTML = `<div style="margin-top:10px;">${statusBadgeHtml} ${nextEpDateHtml} ${seenDateHtml}</div>`;
@@ -1598,12 +1595,22 @@
                 ipcRenderer.invoke('get-tmdb-extra', tmdbId, type).then(extra => {
                     if(!extra) return;
                     
+                    let ratingHtml = '';
                     if(extra.vote_average) {
-                        const ratingHtml = `<div style="display:inline-flex; align-items:center; gap:5px; margin-left:15px;">
+                        ratingHtml = `<div style="display:inline-flex; align-items:center; gap:5px; margin-left:15px;">
                             <span style="color:#FFD600; font-size:1.1rem;">★</span>
                             <span style="font-weight:bold; color:white;">${extra.vote_average.toFixed(1)}</span>
                             <span style="color:#aaa; font-size:0.8rem;">/ 10</span>
                         </div>`;
+                    }
+                    
+                    if (s.lastWatched && s.watchedEpisodes > 0) {
+                        ratingHtml += `<div style="display:inline-flex; align-items:center; gap:5px; margin-left:15px; font-size:0.9rem; color:#aaa;">
+                            <span style="color:var(--accent); font-weight:bold;">Seen on:</span> ${new Date(s.lastWatched).toLocaleDateString()}
+                        </div>`;
+                    }
+                    
+                    if(ratingHtml) {
                         const metaEl = document.getElementById('m-meta');
                         if(metaEl) metaEl.innerHTML += ratingHtml;
                     }
@@ -1647,9 +1654,7 @@
                 if(s.type === 'movie') {
                     const ep = data.episodes[0];
                     if(ep.is_watched) {
-                        const dateSeenHtml = s.lastWatched ? `<div style="font-size:0.9rem; color:#aaa; margin-top:5px; margin-bottom: 5px;">Seen on: ${new Date(s.lastWatched).toLocaleDateString()}</div>` : '';
                         body.innerHTML = `<h2>Status: <span style="color:var(--accent);">Watched ${ep.watch_count > 1 ? `(x${ep.watch_count})` : ''}</span></h2>
-                        ${dateSeenHtml}
                         <div style="display:flex; gap:10px; margin-top:1rem;">
                             <button class="btn-action" style="flex:1;" onclick="ipcRenderer.invoke('log-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Log Another Watch</button>
                             <button class="btn-action" style="flex:1; background:#333; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Unmark completely</button>
