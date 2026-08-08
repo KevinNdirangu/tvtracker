@@ -5,6 +5,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const aiService = {
+    isEnabled: () => localStorage.getItem('ai_features_enabled') !== 'false',
+    setEnabled: (val) => localStorage.setItem('ai_features_enabled', val),
     getKey: () => localStorage.getItem('groq_api_key'),
     async callGroq(prompt) {
         const key = this.getKey();
@@ -33,6 +35,7 @@ Generate a concise, spoiler-free recap of ONLY what happens in these specific ep
         return await this.callGroq(prompt);
     },
     async autoTag(showTitle, overview, genres) {
+        if (!this.isEnabled()) return "";
         const prompt = `You are a media categorizer. Based on the following TV show / movie details, generate 3 to 5 hyper-specific, comma-separated "vibe" tags (e.g., slow-burn, enemies-to-lovers, gritty, mind-bending, feel-good). 
 Title: ${showTitle}
 Overview: ${overview}
