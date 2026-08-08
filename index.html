@@ -349,8 +349,8 @@
         
         <h3 style="margin-top: 2rem;">AI Configuration</h3>
         <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333;">
-            <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Enter your Google Gemini API key to enable AI Recaps, Smart Search, and Auto-Tagging. This key is stored securely in your browser's local storage.</p>
-            <input type="password" id="gemini-api-key" placeholder="AIza..." style="width:100%; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:10px; border-radius:6px; outline:none; font-size:1rem; margin-bottom: 10px;">
+            <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Enter your Groq API key to enable AI Recaps, Smart Search, and Auto-Tagging. This key is stored securely in your browser's local storage.</p>
+            <input type="password" id="groq-api-key" placeholder="gsk_..." style="width:100%; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:10px; border-radius:6px; outline:none; font-size:1rem; margin-bottom: 10px;">
             <button class="btn-action" style="width:100%; padding:12px;" onclick="saveAiKey()">Save API Key</button>
             <p id="ai-key-status" style="color:#34c759; margin-top:10px; text-align:center; font-weight:bold; display:none;">Saved successfully!</p>
         </div>
@@ -599,11 +599,11 @@
 
         // --- SETTINGS PAGE ---
         function saveAiKey() {
-            const val = document.getElementById('gemini-api-key').value.trim();
+            const val = document.getElementById('groq-api-key').value.trim();
             if (val) {
-                localStorage.setItem('gemini_api_key', val);
+                localStorage.setItem('groq_api_key', val);
             } else {
-                localStorage.removeItem('gemini_api_key');
+                localStorage.removeItem('groq_api_key');
             }
             const st = document.getElementById('ai-key-status');
             st.style.display = 'block';
@@ -611,7 +611,7 @@
         }
 
         async function loadSettings() {
-            document.getElementById('gemini-api-key').value = localStorage.getItem('gemini_api_key') || '';
+            document.getElementById('groq-api-key').value = localStorage.getItem('groq_api_key') || '';
             const tz = await ipcRenderer.invoke('get-setting', 'autoTimezoneShift');
             document.getElementById('autoTimezoneToggle').checked = tz === '1';
         }
@@ -1818,7 +1818,7 @@
 
         async function sendAiMessage() {
             if (!aiService.getKey()) {
-                alert('Please configure your Gemini API key in Settings first.');
+                alert('Please configure your Groq API key in Settings first.');
                 return;
             }
             const input = document.getElementById('ai-chat-input');
@@ -1840,7 +1840,7 @@ ${JSON.stringify(simplifiedLib)}
 The user says: "${msg}"
 Answer their query conversationally based on their library data. Do not show the JSON. Format output in Markdown.`;
                 
-                const response = await aiService.callGemini(prompt);
+                const response = await aiService.callGroq(prompt);
                 document.getElementById('ai-typing').remove();
                 history.innerHTML += `<div style="background: #2a2a3e; padding: 10px 15px; border-radius: 12px; align-self: flex-start; max-width: 80%; line-height: 1.5;">${response.replace(/\n/g, '<br>')}</div>`;
                 history.scrollTop = history.scrollHeight;
