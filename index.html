@@ -166,10 +166,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 <span>Settings</span>
             </button>
-            <button class="nav-btn tab-btn" id="btn-ai" onclick="nav('ai', this)" style="color: #a5a6f6;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                <span>AI Insights</span>
-            </button>
+
             <button class="nav-btn tab-btn" id="btn-stats" onclick="nav('stats', this)">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20V14"></path></svg>
                 <span>Statistics</span>
@@ -246,6 +243,10 @@
 
     <!-- DISCOVER / SEARCH -->
     <div id="tab-discover" class="tab-content">
+        <div style="display:flex; gap:10px; margin-bottom:1.5rem; width:100%;">
+            <input type="text" id="ai-discover-input" placeholder="✨ Describe a vibe or plot... (e.g. Gritty sci-fi with time travel)" style="flex:1; background:var(--card-bg); color:white; border:1px solid #333; padding:12px 16px; border-radius:12px; outline:none; font-size:1rem;" onkeypress="if(event.key === 'Enter') executeAiSearch()">
+            <button class="btn-action" style="background:var(--accent); color:black; padding: 0 20px; border-radius:12px; font-weight:bold;" onclick="executeAiSearch()">Search</button>
+        </div>
         <div class="sub-nav" style="align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.8rem;">
             <button class="sub-btn active" onclick="setDiscoverType('all', this)">All</button>
             <button class="sub-btn" onclick="setDiscoverType('movie', this)">Movies</button>
@@ -468,19 +469,7 @@
     </div>
 
     <!-- STATISTICS -->
-    <!-- AI INSIGHTS TAB -->
-    <div id="tab-ai" class="tab-content" style="display:flex; flex-direction:column; height: 100vh; padding: 2rem; box-sizing: border-box; background: var(--bg-color);">
-        <h2 style="margin-top: 0; color: #a5a6f6;">✨ AI Insights</h2>
-        <div id="ai-chat-history" style="flex:1; overflow-y:auto; background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; margin-bottom: 1rem; display:flex; flex-direction:column; gap:1rem;">
-            <div style="background: #2a2a3e; padding: 10px 15px; border-radius: 12px; align-self: flex-start; max-width: 80%;">
-                Hello! I am your AI Assistant. Ask me anything about your library, watch habits, or for recommendations!
-            </div>
-        </div>
-        <div style="display:flex; gap:10px;">
-            <input type="text" id="ai-chat-input" placeholder="e.g., What sci-fi shows have I watched?" style="flex:1; background:#111; color:white; border:1px solid #333; padding:12px; border-radius:6px; outline:none; font-size:1rem;" onkeypress="if(event.key === 'Enter') sendAiMessage()">
-            <button class="btn-action" style="background:#a5a6f6; color:black; padding: 0 20px;" onclick="sendAiMessage()">Send</button>
-        </div>
-    </div>
+
 
     <div id="tab-stats" class="tab-content" style="padding: 2rem; max-width:1200px; margin:auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem; flex-wrap:wrap; gap:10px;">
@@ -488,6 +477,12 @@
             <select id="statsYearFilter" onchange="renderStatsUI()" style="background:var(--card-bg); color:white; border:1px solid #333; padding:10px 15px; border-radius:12px; outline:none; font-size:1rem; cursor:pointer;">
                 <option value="all">All Time</option>
             </select>
+        </div>
+        <div style="background: linear-gradient(135deg, #2a2a3e 0%, #111 100%); padding: 2rem; border-radius: 16px; border: 1px solid #a5a6f6; margin-bottom: 2rem; text-align: center;">
+            <h2 style="margin-top: 0; color: #a5a6f6;">✨ AI TV Time Recap</h2>
+            <p style="color: #aaa; margin-bottom: 1.5rem;">Generate a fun, personalized summary of your watching habits!</p>
+            <button class="btn-action" style="background: #a5a6f6; color: black; font-weight: bold; padding: 12px 24px; font-size: 1.1rem; border-radius: 12px;" onclick="executeAiRecap()">Generate My Recap</button>
+            <div id="ai-recap-result" style="margin-top: 1.5rem; text-align: left; color: white; line-height: 1.6; display: none; background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);"></div>
         </div>
         
         <div id="stats-story-container" style="display:flex; flex-direction:column; gap:2rem; margin-top:1rem;">
@@ -838,6 +833,35 @@
                     executeSearch(1, false);
                 }
             }, 500);
+        }
+
+        async function executeAiSearch() {
+            if (!aiService.getKey()) {
+                alert('Please configure your Groq API key in Settings first.');
+                return;
+            }
+            const q = document.getElementById('ai-discover-input').value.trim();
+            if(!q) return;
+
+            document.getElementById('discover-title').innerText = `✨ AI Recommendations for "${q}"`;
+            document.getElementById('grid-discover').innerHTML = '<div style="grid-column: 1/-1; color: var(--accent); padding: 2rem; text-align: center;">Thinking...</div>';
+            
+            const titles = await aiService.smartSearch(q);
+            if (!titles || titles.length === 0) {
+                document.getElementById('grid-discover').innerHTML = '<div style="grid-column: 1/-1; color: #ff3b30; padding: 2rem; text-align: center;">AI could not find any matches.</div>';
+                return;
+            }
+
+            let results = [];
+            for (const t of titles) {
+                const res = await ipcRenderer.invoke('search-tmdb', t, 1);
+                if (res && res.length > 0) {
+                    results.push(res[0]);
+                }
+            }
+
+            isDiscoverSearch = true; // prevent pagination of AI results
+            renderDiscoverGrid(results, false);
         }
 
         async function executeSearch(page = 1, append = false) {
@@ -1818,40 +1842,7 @@
             document.getElementById('ep-modal').style.display = 'none';
         }
 
-        async function sendAiMessage() {
-            if (!aiService.getKey()) {
-                alert('Please configure your Groq API key in Settings first.');
-                return;
-            }
-            const input = document.getElementById('ai-chat-input');
-            const msg = input.value.trim();
-            if (!msg) return;
-            
-            const history = document.getElementById('ai-chat-history');
-            history.innerHTML += `<div style="background: var(--accent); color: black; padding: 10px 15px; border-radius: 12px; align-self: flex-end; max-width: 80%;">${msg}</div>`;
-            input.value = '';
-            
-            history.innerHTML += `<div id="ai-typing" style="color: #aaa; align-self: flex-start;">Thinking...</div>`;
-            history.scrollTop = history.scrollHeight;
-            
-            try {
-                const libData = await ipcRenderer.invoke('get-library');
-                let compactLib = libData.map(s => `${s.title}|${s.status}|${s.user_rating}|${s.custom_tags}`).join('\n');
-                if (compactLib.length > 15000) compactLib = compactLib.substring(0, 15000) + '\n...[TRUNCATED]';
-                const prompt = `You are a helpful AI TV/Movie assistant inside a tracking app. The user has the following library data (Title|Status|Rating|Tags):
-${compactLib}
-The user says: "${msg}"
-Answer their query conversationally based on their library data. Do not show the raw data format. Format output in Markdown.`;
-                
-                const response = await aiService.callGroq(prompt);
-                document.getElementById('ai-typing').remove();
-                history.innerHTML += `<div style="background: #2a2a3e; padding: 10px 15px; border-radius: 12px; align-self: flex-start; max-width: 80%; line-height: 1.5;">${response.replace(/\n/g, '<br>')}</div>`;
-                history.scrollTop = history.scrollHeight;
-            } catch (e) {
-                document.getElementById('ai-typing').remove();
-                history.innerHTML += `<div style="background: #ff3b30; color: white; padding: 10px 15px; border-radius: 12px; align-self: flex-start; max-width: 80%;">Error: ${e.message}</div>`;
-            }
-        }
+
 
         async function saveShowMeta() {
             if(!currentOpenShowId) return;
@@ -2228,6 +2219,29 @@ Answer their query conversationally based on their library data. Do not show the
             if (sortedYears.includes(currentVal)) select.value = currentVal;
             
             renderStatsUI();
+        }
+
+        async function executeAiRecap() {
+            if (!aiService.getKey()) {
+                alert('Please configure your Groq API key in Settings first.');
+                return;
+            }
+            const resDiv = document.getElementById('ai-recap-result');
+            resDiv.style.display = 'block';
+            resDiv.innerHTML = '<div style="color: var(--accent); text-align: center;">Analyzing your watch history...</div>';
+            
+            const timeStr = document.getElementById('st-time').innerText;
+            const epStr = document.getElementById('st-eps').innerText;
+            const storyText = document.getElementById('stats-story-container').innerText;
+
+            const statsObj = {
+                timeWatched: timeStr,
+                episodesLogged: epStr,
+                details: storyText.substring(0, 5000)
+            };
+
+            const recap = await aiService.generateUserRecap(statsObj);
+            resDiv.innerHTML = recap.replace(/\n/g, '<br>');
         }
 
         function renderStatsUI() {

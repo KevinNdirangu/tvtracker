@@ -44,6 +44,30 @@ Output ONLY the comma-separated tags, nothing else.`;
             console.error("Auto-tag failed:", e);
             return "";
         }
+    },
+    async smartSearch(vibeQuery) {
+        const prompt = `You are a TV show and Movie recommendation engine. The user is looking for something to watch based on this vibe or description: "${vibeQuery}".
+Please recommend exactly 5 relevant TV show or movie titles. 
+Output ONLY a JSON array of strings containing the titles. Do not include any markdown formatting, backticks, or extra text. Example output: ["Inception", "Interstellar", "The Matrix", "Tenet", "Blade Runner 2049"]`;
+        try {
+            const result = await this.callGroq(prompt);
+            return JSON.parse(result.replace(/```json|```/g, '').trim());
+        } catch(e) {
+            console.error("Smart search failed:", e);
+            return [];
+        }
+    },
+    async generateUserRecap(statsData) {
+        const prompt = `You are a fun and energetic TV/Movie tracking assistant. The user has requested their "TV Time Recap" (similar to Spotify Wrapped).
+Here are their lifetime watching statistics:
+${JSON.stringify(statsData)}
+Write a fun, highly engaging 2-3 paragraph summary celebrating their watching habits. Use markdown formatting, emojis, and a conversational tone. Do not use headers. Focus on their top genres, total time watched, and favorite shows.`;
+        try {
+            return await this.callGroq(prompt);
+        } catch(e) {
+            console.error("Recap failed:", e);
+            return "Oops! I couldn't generate your recap right now.";
+        }
     }
 };
 
