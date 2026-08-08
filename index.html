@@ -1836,11 +1836,12 @@
             
             try {
                 const libData = await ipcRenderer.invoke('get-library');
-                const simplifiedLib = libData.map(s => ({ title: s.title, type: s.type, genre: s.genre, tags: s.custom_tags, status: s.status, rating: s.user_rating }));
-                const prompt = `You are a helpful AI TV/Movie assistant inside a tracking app. The user has the following library data (JSON format):
-${JSON.stringify(simplifiedLib)}
+                let compactLib = libData.map(s => `${s.title}|${s.status}|${s.user_rating}|${s.custom_tags}`).join('\n');
+                if (compactLib.length > 15000) compactLib = compactLib.substring(0, 15000) + '\n...[TRUNCATED]';
+                const prompt = `You are a helpful AI TV/Movie assistant inside a tracking app. The user has the following library data (Title|Status|Rating|Tags):
+${compactLib}
 The user says: "${msg}"
-Answer their query conversationally based on their library data. Do not show the JSON. Format output in Markdown.`;
+Answer their query conversationally based on their library data. Do not show the raw data format. Format output in Markdown.`;
                 
                 const response = await aiService.callGroq(prompt);
                 document.getElementById('ai-typing').remove();
