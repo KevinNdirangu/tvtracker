@@ -1182,7 +1182,7 @@
                         <div class="tag" style="top:8px; right:8px; background:${statusColor}; color:black; font-weight:900;">${statusText}</div>
                         <div class="card-info">
                             <h2 class="show-title">${i.title}</h2>
-                            ${i.type === 'tv' ? (i.airedEpisodes > 0 ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.airedEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : `<div style="font-size:0.8rem; color:#aaa; font-style:italic;">${i.status || 'TBA'}</div>`) : (i.watchedEpisodes > 0 && i.lastWatched ? `<div style="font-size:0.8rem; color:var(--accent); font-weight:bold; margin-top:5px;">Seen: ${new Date(i.lastWatched).toLocaleDateString()}</div>` : '')}
+                            ${i.type === 'tv' ? (i.airedEpisodes > 0 ? `<div style="font-size:0.8rem; color:#aaa;">${i.watchedEpisodes} / ${i.airedEpisodes}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background:${statusColor};"></div></div>` : `<div style="font-size:0.8rem; color:#aaa; font-style:italic;">${i.status || 'TBA'}</div>`) + (i.watchedEpisodes > 0 && i.lastWatched ? `<div style="font-size:0.75rem; color:var(--accent); font-weight:bold; margin-top:5px;">Last watched: ${new Date(i.lastWatched).toLocaleDateString()}</div>` : '') : (i.watchedEpisodes > 0 && i.lastWatched ? `<div style="font-size:0.8rem; color:var(--accent); font-weight:bold; margin-top:5px;">Seen: ${new Date(i.lastWatched).toLocaleDateString()}</div>` : '')}
                         </div>
                     </div>
                 `;
@@ -1568,7 +1568,7 @@
                         
                         let seenDateHtml = '';
                         if (s.lastWatched && s.watchedEpisodes > 0) {
-                            seenDateHtml = `<span style="font-size:0.8rem; color:var(--accent); margin-left:10px; font-weight:bold;">(Seen: ${new Date(s.lastWatched).toLocaleDateString()})</span>`;
+                            seenDateHtml = `<span style="font-size:0.8rem; color:var(--accent); margin-left:10px; font-weight:bold;">(Last watched: ${new Date(s.lastWatched).toLocaleDateString()})</span>`;
                         }
                         
                         const ls = document.getElementById('m-live-status');
