@@ -835,7 +835,10 @@
             }, 500);
         }
 
-        async function executeAiSearch() {
+        let isAiSearch = false;
+        let aiExistingTitles = [];
+
+        async function executeAiSearch(page = 1, append = false) {
             if (!aiService.getKey()) {
                 alert('Please configure your Groq API key in Settings first.');
                 return;
@@ -843,14 +846,19 @@
             const q = document.getElementById('ai-discover-input').value.trim();
             if(!q) return;
 
-            document.getElementById('discover-title').innerText = `✨ AI Recommendations for "${q}"`;
-            document.getElementById('grid-discover').innerHTML = '<div style="grid-column: 1/-1; color: var(--accent); padding: 2rem; text-align: center;">Thinking...</div>';
+            if (!append) {
+                document.getElementById('discover-title').innerText = `✨ AI Recommendations for "${q}"`;
+                document.getElementById('grid-discover').innerHTML = '<div style="grid-column: 1/-1; color: var(--accent); padding: 2rem; text-align: center;">Thinking...</div>';
+                aiExistingTitles = [];
+            }
             
-            const titles = await aiService.smartSearch(q);
+            const titles = await aiService.smartSearch(q, aiExistingTitles);
             if (!titles || titles.length === 0) {
-                document.getElementById('grid-discover').innerHTML = '<div style="grid-column: 1/-1; color: #ff3b30; padding: 2rem; text-align: center;">AI could not find any matches.</div>';
+                if (!append) document.getElementById('grid-discover').innerHTML = '<div style="grid-column: 1/-1; color: #ff3b30; padding: 2rem; text-align: center;">AI could not find any matches.</div>';
                 return;
             }
+
+            aiExistingTitles.push(...titles);
 
             let results = [];
             for (const t of titles) {
@@ -860,8 +868,10 @@
                 }
             }
 
-            isDiscoverSearch = true; // prevent pagination of AI results
-            renderDiscoverGrid(results, false);
+            isDiscoverSearch = false;
+            isAiSearch = true;
+            currentDiscoverPage = page;
+            renderDiscoverGrid(results, append);
         }
 
         async function executeSearch(page = 1, append = false) {
@@ -875,6 +885,7 @@
             
             currentDiscoverPage = page;
             isDiscoverSearch = true;
+            isAiSearch = false;
             
             const res = await ipcRenderer.invoke('search-tmdb', q, page);
             renderDiscoverGrid(res, append);
@@ -902,13 +913,15 @@
             
             currentDiscoverPage = page;
             isDiscoverSearch = false;
+            isAiSearch = false;
             
             const res = await ipcRenderer.invoke('get-trending', currentDiscoverType, page, genre);
             renderDiscoverGrid(res, append);
         }
         
         function loadMoreDiscover() {
-            if(isDiscoverSearch) executeSearch(currentDiscoverPage + 1, true);
+            if(isAiSearch) executeAiSearch(currentDiscoverPage + 1, true);
+            else if(isDiscoverSearch) executeSearch(currentDiscoverPage + 1, true);
             else loadDiscover(currentDiscoverPage + 1, true);
         }
 

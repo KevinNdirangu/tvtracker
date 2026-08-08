@@ -45,8 +45,13 @@ Output ONLY the comma-separated tags, nothing else.`;
             return "";
         }
     },
-    async smartSearch(vibeQuery) {
+    async smartSearch(vibeQuery, existingTitles = []) {
+        let excludeText = "";
+        if (existingTitles.length > 0) {
+            excludeText = `DO NOT recommend any of these titles (you already recommended them): ${existingTitles.join(", ")}. Recommend entirely new titles.`;
+        }
         const prompt = `You are a TV show and Movie recommendation engine. The user is looking for something to watch based on this vibe or description: "${vibeQuery}".
+${excludeText}
 Please recommend exactly 5 relevant TV show or movie titles. 
 Output ONLY a JSON array of strings containing the titles. Do not include any markdown formatting, backticks, or extra text. Example output: ["Inception", "Interstellar", "The Matrix", "Tenet", "Blade Runner 2049"]`;
         try {
