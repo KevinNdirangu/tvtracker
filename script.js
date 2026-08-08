@@ -4,6 +4,43 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const aiService = {
+    getKey: () => localStorage.getItem('gemini_api_key'),
+    async callGemini(prompt) {
+        const key = this.getKey();
+        if (!key) throw new Error("No Gemini API Key found in Settings.");
+        
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+        return data.candidates[0].content.parts[0].text.trim();
+    },
+    async generateRecap(showTitle, episodes) {
+        const prompt = `You are a TV show recap assistant. The user wants a recap of the show "${showTitle}". They have watched the following episodes:
+${episodes.map(ep => `S${ep.season_number}E${ep.episode_number}: ${ep.title}`).join('\n')}
+Generate a concise, spoiler-free recap of ONLY what happens in these specific episodes to refresh their memory before they watch the next episode. Do not spoil anything that happens after these episodes. Format the output in Markdown.`;
+        return await this.callGemini(prompt);
+    },
+    async autoTag(showTitle, overview, genres) {
+        const prompt = `You are a media categorizer. Based on the following TV show / movie details, generate 3 to 5 hyper-specific, comma-separated "vibe" tags (e.g., slow-burn, enemies-to-lovers, gritty, mind-bending, feel-good). 
+Title: ${showTitle}
+Overview: ${overview}
+Genres: ${genres}
+Output ONLY the comma-separated tags, nothing else.`;
+        try {
+            return await this.callGemini(prompt);
+        } catch(e) {
+            console.error("Auto-tag failed:", e);
+            return "";
+        }
+    }
+};
+
 async function fetchAllParallel(table, select) {
     const step = 999;
     const { count } = await supabaseClient.from(table).select('*', { count: 'exact', head: true });
@@ -258,6 +295,11 @@ const api = {
             if (data.origin_country && data.origin_country.some(c => americas.includes(c))) shouldShift = true;
         }
 
+        let autoTags = '';
+        if (aiService.getKey()) {
+            autoTags = await aiService.autoTag(data.title || data.name, data.overview, (data.genres || []).map(g=>g.name).join(', '));
+        }
+
         const { data: existingShow } = await supabaseClient.from('shows').select('id').eq('api_id', data.id).maybeSingle();
         let localId;
         
@@ -275,7 +317,8 @@ const api = {
                     id: nextShowId,
                     api_id: data.id, title: data.title || data.name, genre: (data.genres || []).map(g=>g.name).join(', '),
                     overview: data.overview, poster_url: posterUrl, total_episodes: isMovie ? 1 : (data.number_of_episodes || 0),
-                    status: data.status, type: type, timezone_offset: shouldShift ? 1 : 0
+                    status: data.status, type: type, timezone_offset: shouldShift ? 1 : 0,
+                    custom_tags: autoTags
                 }).select().single();
                 
                 if (!res.error) {

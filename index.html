@@ -166,6 +166,10 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 <span>Settings</span>
             </button>
+            <button class="nav-btn tab-btn" id="btn-ai" onclick="nav('ai', this)" style="color: #a5a6f6;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <span>AI Insights</span>
+            </button>
             <button class="nav-btn tab-btn" id="btn-stats" onclick="nav('stats', this)">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20V14"></path></svg>
                 <span>Statistics</span>
@@ -343,6 +347,14 @@
             <button style="width:30px;height:30px;border-radius:50%;border:none;background:#af52de;cursor:pointer;" onclick="setTheme('#af52de')"></button>
         </div>
         
+        <h3 style="margin-top: 2rem;">AI Configuration</h3>
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333;">
+            <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Enter your Google Gemini API key to enable AI Recaps, Smart Search, and Auto-Tagging. This key is stored securely in your browser's local storage.</p>
+            <input type="password" id="gemini-api-key" placeholder="AIza..." style="width:100%; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:10px; border-radius:6px; outline:none; font-size:1rem; margin-bottom: 10px;">
+            <button class="btn-action" style="width:100%; padding:12px;" onclick="saveAiKey()">Save API Key</button>
+            <p id="ai-key-status" style="color:#34c759; margin-top:10px; text-align:center; font-weight:bold; display:none;">Saved successfully!</p>
+        </div>
+        
         <h3 style="margin-top: 2rem;">Global Timezone Shift</h3>
         <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; margin-bottom: 2rem;">
             <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Automatically adds +1 day to air dates of shows originating in the Americas (e.g. US) to match local African/European timezones.</p>
@@ -454,6 +466,20 @@
     </div>
 
     <!-- STATISTICS -->
+    <!-- AI INSIGHTS TAB -->
+    <div id="tab-ai" class="tab-content" style="display:flex; flex-direction:column; height: 100vh; padding: 2rem; box-sizing: border-box; background: var(--bg-color);">
+        <h2 style="margin-top: 0; color: #a5a6f6;">✨ AI Insights</h2>
+        <div id="ai-chat-history" style="flex:1; overflow-y:auto; background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; margin-bottom: 1rem; display:flex; flex-direction:column; gap:1rem;">
+            <div style="background: #2a2a3e; padding: 10px 15px; border-radius: 12px; align-self: flex-start; max-width: 80%;">
+                Hello! I am your AI Assistant. Ask me anything about your library, watch habits, or for recommendations!
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="ai-chat-input" placeholder="e.g., What sci-fi shows have I watched?" style="flex:1; background:#111; color:white; border:1px solid #333; padding:12px; border-radius:6px; outline:none; font-size:1rem;" onkeypress="if(event.key === 'Enter') sendAiMessage()">
+            <button class="btn-action" style="background:#a5a6f6; color:black; padding: 0 20px;" onclick="sendAiMessage()">Send</button>
+        </div>
+    </div>
+
     <div id="tab-stats" class="tab-content" style="padding: 2rem; max-width:1200px; margin:auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem; flex-wrap:wrap; gap:10px;">
             <h1 style="margin:0; font-size:3rem;">Your TV Story</h1>
@@ -520,6 +546,10 @@
                     <h2 id="ep-m-title" style="margin: 0 0 0.5rem; font-size: 1.5rem;">Loading...</h2>
                     <div id="ep-m-meta" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem; font-weight:600;"></div>
                     <div id="ep-m-overview" style="line-height:1.5; margin-bottom:1.5rem; color:#ccc;"></div>
+                    <div id="ep-m-ai-recap-container" style="display:none; background: #1a1a2e; padding: 1rem; border-radius: 8px; border: 1px solid #4a4e69; margin-bottom: 1.5rem;">
+                        <div style="font-weight:bold; color: #a5a6f6; margin-bottom: 8px;">✨ AI Season Recap</div>
+                        <div id="ep-m-ai-recap-content" style="font-size:0.9rem; line-height: 1.5; color: #ccc;">Generating recap...</div>
+                    </div>
                     <div id="ep-m-actions" style="display:flex; gap:10px;"></div>
                 </div>
             </div>
@@ -568,7 +598,20 @@
         if(savedTheme) setTheme(savedTheme);
 
         // --- SETTINGS PAGE ---
+        function saveAiKey() {
+            const val = document.getElementById('gemini-api-key').value.trim();
+            if (val) {
+                localStorage.setItem('gemini_api_key', val);
+            } else {
+                localStorage.removeItem('gemini_api_key');
+            }
+            const st = document.getElementById('ai-key-status');
+            st.style.display = 'block';
+            setTimeout(() => st.style.display = 'none', 3000);
+        }
+
         async function loadSettings() {
+            document.getElementById('gemini-api-key').value = localStorage.getItem('gemini_api_key') || '';
             const tz = await ipcRenderer.invoke('get-setting', 'autoTimezoneShift');
             document.getElementById('autoTimezoneToggle').checked = tz === '1';
         }
@@ -1713,6 +1756,7 @@
             document.getElementById('ep-m-overview').innerText = "";
             document.getElementById('ep-m-still').style.display = "none";
             document.getElementById('ep-m-actions').innerHTML = "";
+            document.getElementById('ep-m-ai-recap-container').style.display = 'none';
 
             try {
                 const epData = await ipcRenderer.invoke('get-tmdb-ep-details', tmdbId, seasonNum, epNum);
@@ -1738,9 +1782,12 @@
                 let actions = '';
                 if(isWatched) {
                     actions += `<button class="btn-action" style="flex:1;" onclick="ipcRenderer.invoke('log-episode', ${epId}).then(()=>{closeEpModal(); openModal(${tmdbId}, '${type}', true, ${localDbId})})">Log Another Watch</button>`;
-                    actions += `<button class="btn-action" style="flex:1; background:#ff3b30; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${epId}).then(()=>{closeEpModal(); openModal(${tmdbId}, '${type}', true, ${localDbId})})">Unmark completely</button>`;
+                    actions += `<button class="btn-action" style="flex:1; background:#ff3b30; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${epId}).then(()=>{closeEpModal(); openModal(${tmdbId}, '${type}', true, ${localDbId})})">Unmark</button>`;
                 } else {
                     actions += `<button class="btn-action" style="flex:1; background:var(--accent); color:black;" onclick="ipcRenderer.invoke('log-episode', ${epId}).then(()=>{closeEpModal(); openModal(${tmdbId}, '${type}', true, ${localDbId})})">Mark as Watched</button>`;
+                }
+                if (aiService.getKey()) {
+                    actions += `<button class="btn-action" style="flex:1; background: #a5a6f6; color: black;" onclick="generateRecapForModal(${localDbId}, ${seasonNum}, ${epNum})">✨ AI Recap</button>`;
                 }
                 document.getElementById('ep-m-actions').innerHTML = actions;
             } catch (err) {
@@ -1748,8 +1795,59 @@
             }
         }
 
+        async function generateRecapForModal(localDbId, seasonNum, epNum) {
+            const data = await ipcRenderer.invoke('get-show-details', localDbId);
+            const eps = data.episodes.filter(e => e.is_watched && (e.season_number < seasonNum || (e.season_number === seasonNum && e.episode_number < epNum)));
+            document.getElementById('ep-m-ai-recap-container').style.display = 'block';
+            document.getElementById('ep-m-ai-recap-content').innerText = "Generating recap...";
+            if (eps.length === 0) {
+                document.getElementById('ep-m-ai-recap-content').innerText = "You haven't watched any episodes prior to this one, so there's nothing to recap yet!";
+                return;
+            }
+            try {
+                const recap = await aiService.generateRecap(data.show.title, eps);
+                document.getElementById('ep-m-ai-recap-content').innerHTML = recap.replace(/\n/g, '<br>');
+            } catch (err) {
+                document.getElementById('ep-m-ai-recap-content').innerText = "Failed to generate recap: " + err.message;
+            }
+        }
+
         function closeEpModal() {
             document.getElementById('ep-modal').style.display = 'none';
+        }
+
+        async function sendAiMessage() {
+            if (!aiService.getKey()) {
+                alert('Please configure your Gemini API key in Settings first.');
+                return;
+            }
+            const input = document.getElementById('ai-chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            
+            const history = document.getElementById('ai-chat-history');
+            history.innerHTML += `<div style="background: var(--accent); color: black; padding: 10px 15px; border-radius: 12px; align-self: flex-end; max-width: 80%;">${msg}</div>`;
+            input.value = '';
+            
+            history.innerHTML += `<div id="ai-typing" style="color: #aaa; align-self: flex-start;">Thinking...</div>`;
+            history.scrollTop = history.scrollHeight;
+            
+            try {
+                const libData = await ipcRenderer.invoke('get-library');
+                const simplifiedLib = libData.map(s => ({ title: s.title, type: s.type, genre: s.genre, tags: s.custom_tags, status: s.status, rating: s.user_rating }));
+                const prompt = `You are a helpful AI TV/Movie assistant inside a tracking app. The user has the following library data (JSON format):
+${JSON.stringify(simplifiedLib)}
+The user says: "${msg}"
+Answer their query conversationally based on their library data. Do not show the JSON. Format output in Markdown.`;
+                
+                const response = await aiService.callGemini(prompt);
+                document.getElementById('ai-typing').remove();
+                history.innerHTML += `<div style="background: #2a2a3e; padding: 10px 15px; border-radius: 12px; align-self: flex-start; max-width: 80%; line-height: 1.5;">${response.replace(/\n/g, '<br>')}</div>`;
+                history.scrollTop = history.scrollHeight;
+            } catch (e) {
+                document.getElementById('ai-typing').remove();
+                history.innerHTML += `<div style="background: #ff3b30; color: white; padding: 10px 15px; border-radius: 12px; align-self: flex-start; max-width: 80%;">Error: ${e.message}</div>`;
+            }
         }
 
         async function saveShowMeta() {
