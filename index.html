@@ -279,6 +279,7 @@
             <div style="flex-grow: 1;"></div>
             <select id="sortSelect" onchange="renderLibraryGrid()" style="background:var(--card-bg); color:white; border:1px solid #333; border-radius:8px; padding:0.4rem; margin-right:10px; outline:none;">
                 <option value="lastWatchedDesc">Last Watched</option>
+                <option value="lastWatchedAsc">Oldest Watched</option>
                 <option value="titleAsc">Title (A-Z)</option>
                 <option value="addedDesc">Recently Added</option>
                 <option value="ratingDesc">Highest Rated</option>
@@ -1146,10 +1147,10 @@
                     if (aMissing === bMissing) return a.title.localeCompare(b.title);
                     return bMissing - aMissing;
                 }
-                if(s === 'lastWatchedDesc') {
+                if(s === 'lastWatchedDesc' || s === 'lastWatchedAsc') {
                     const timeA = a.lastWatched ? new Date(a.lastWatched).getTime() : 0;
                     const timeB = b.lastWatched ? new Date(b.lastWatched).getTime() : 0;
-                    return timeB - timeA;
+                    return s === 'lastWatchedAsc' ? timeA - timeB : timeB - timeA;
                 }
                 return 0;
             });
