@@ -347,12 +347,14 @@
             <button style="width:30px;height:30px;border-radius:50%;border:none;background:#af52de;cursor:pointer;" onclick="setTheme('#af52de')"></button>
         </div>
         
-        <h3 style="margin-top: 2rem;">AI Configuration</h3>
-        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333;">
-            <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Enter your Groq API key to enable AI Recaps, Smart Search, and Auto-Tagging. This key is stored securely in your browser's local storage.</p>
-            <input type="password" id="groq-api-key" placeholder="gsk_..." style="width:100%; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:10px; border-radius:6px; outline:none; font-size:1rem; margin-bottom: 10px;">
-            <button class="btn-action" style="width:100%; padding:12px;" onclick="saveAiKey()">Save API Key</button>
-            <p id="ai-key-status" style="color:#34c759; margin-top:10px; text-align:center; font-weight:bold; display:none;">Saved successfully!</p>
+        <h3 style="margin-top: 1.5rem;">AI Configuration</h3>
+        <div style="background: var(--card-bg); padding: 1rem; border-radius: 12px; border: 1px solid #333;">
+            <p style="color:#aaa; font-size:0.85rem; margin-top:0; margin-bottom:10px;">Enter your Groq API key to enable AI Recaps, Smart Search, and Auto-Tagging.</p>
+            <div style="display: flex; gap: 10px;">
+                <input type="password" id="groq-api-key" placeholder="gsk_..." style="flex:1; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:8px; border-radius:6px; outline:none; font-size:0.95rem;">
+                <button class="btn-action" style="padding:8px 16px;" onclick="saveAiKey()">Save</button>
+            </div>
+            <p id="ai-key-status" style="color:#34c759; margin-top:8px; margin-bottom:0; text-align:center; font-weight:bold; font-size:0.85rem; display:none;">Saved successfully!</p>
         </div>
         
         <h3 style="margin-top: 2rem;">Global Timezone Shift</h3>
