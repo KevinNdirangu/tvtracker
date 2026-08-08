@@ -123,7 +123,7 @@
             .modal-content > div:nth-child(3) > div { grid-template-columns: 1fr !important; gap: 2rem !important; width: 100%; box-sizing: border-box; }
 
             #m-title { font-size: 1.6rem !important; margin-bottom: 0.2rem; word-break: break-word; line-height: 1.2; }
-            #m-actions { flex-direction: column; width: 100%; gap: 0.8rem; justify-content: center; }
+            #m-actions { flex-direction: column; width: 100%; gap: 8px; justify-content: center; }
             .btn-action, .btn-delete { width: 100%; box-sizing: border-box; max-width: none; padding: 0.9rem; font-size: 1rem; }
             
             #gcal-actions { flex-direction: column; }
@@ -489,13 +489,13 @@
                 <div style="flex-grow: 1;">
                     <h1 id="m-title" style="margin: 0 0 0.5rem; font-size: 2.2rem; line-height: 1.2;">Loading...</h1>
                     <div id="m-meta" style="color: var(--accent); margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem;"></div>
-                    <div id="m-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;"></div>
+                    <div id="m-actions" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
                 </div>
             </div>
 
             <!-- Content Area -->
             <div style="padding: 3rem 2rem 2rem 2rem; background: var(--bg-color);">
-                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+                <div style="display: block;">
                     
                     <!-- Left Column: Overview and Episodes -->
                     <div>
@@ -504,30 +504,6 @@
                         
                         <h3 style="margin-top:0;">Episodes</h3>
                         <div id="m-body"></div>
-                    </div>
-
-                    <!-- Right Column: Details & Notes -->
-                    <div>
-                        <div id="m-extra-meta" style="display:none; background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333;">
-                            <h4 style="margin:0 0 1rem 0;">Your Details</h4>
-                            <div style="margin-bottom: 1rem;">
-                                <label style="display:block; margin-bottom:0.5rem; color:#aaa; font-size:0.9rem;">Rating</label>
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <input type="number" id="m-rating" min="0" max="10" style="width:60px; background:#111; color:white; border:1px solid #333; padding:8px; border-radius:6px; outline:none; font-size:1rem;"> 
-                                    <span style="color:#aaa;">/ 10</span>
-                                </div>
-                            </div>
-                            <div style="margin-bottom: 1rem;">
-                                <label style="display:block; margin-bottom:0.5rem; color:#aaa; font-size:0.9rem;">Tags</label>
-                                <input type="text" id="m-tags" placeholder="e.g. anime, favorites" style="width:100%; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:8px; border-radius:6px; outline:none; font-size:0.95rem;">
-                            </div>
-                            <div style="margin-bottom: 1rem;">
-                                <label style="display:block; margin-bottom:0.5rem; color:#aaa; font-size:0.9rem;">Notes</label>
-                                <textarea id="m-notes" placeholder="Personal notes or reviews..." style="width:100%; height:80px; box-sizing:border-box; background:#111; color:white; border:1px solid #333; padding:8px; resize:none; border-radius:6px; outline:none; font-family:inherit; font-size:0.95rem;"></textarea>
-                            </div>
-                            <button class="btn-action" style="width:100%; padding:10px; background:#333; color:white;" onclick="saveShowMeta()">Save Details</button>
-                            <div id="m-meta-saved" style="color:#34c759; font-size:0.85rem; display:none; text-align:center; margin-top:10px; font-weight:bold;">Saved!</div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1535,13 +1511,9 @@
                 const data = await ipcRenderer.invoke('get-show-details', localDbId);
                 const s = data.show;
                 
-                document.getElementById('m-extra-meta').style.display = 'block';
                 currentOpenShowId = s.id;
                 currentOpenTmdbId = tmdbId;
                 currentOpenType = type;
-                document.getElementById('m-rating').value = s.user_rating || 0;
-                document.getElementById('m-notes').value = s.user_notes || '';
-                document.getElementById('m-tags').value = s.custom_tags || '';
                 
                 document.getElementById('m-title').innerText = s.title;
                 document.getElementById('m-poster').src = s.poster_url;
@@ -1687,6 +1659,7 @@
                                             <span style="overflow: hidden; text-overflow: ellipsis;">${ep.title}</span>
                                         </div>
                                         <div style="display:flex; align-items:center; gap:12px;" id="ep-badge-container-${ep.id}">
+                                            ${ep.is_watched && ep.watched_at ? `<span style="color:#aaa; font-size:0.75rem; white-space:nowrap;">(Logged: ${new Date(ep.watched_at).toLocaleDateString('en-GB')})</span>` : ''}
                                             ${ep.watch_count > 1 ? `<span class="watch-badge" style="background:var(--accent); color:black; font-size:0.75rem; padding:2px 6px; border-radius:10px; font-weight:bold;">x${ep.watch_count}</span>` : ''}
                                             <div class="custom-checkbox"></div>
                                         </div>
