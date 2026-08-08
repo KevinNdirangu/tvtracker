@@ -1599,7 +1599,16 @@
                 
                 document.getElementById('m-title').innerText = s.title;
                 document.getElementById('m-poster').src = s.poster_url;
-                document.getElementById('m-meta').innerHTML = `<span id="m-meta-text">${s.genre}</span> <span id="m-live-status"></span>`;
+                
+                let customTagsHtml = '';
+                if (s.custom_tags) {
+                    const tags = s.custom_tags.split(',').map(t => t.trim()).filter(t => t);
+                    if (tags.length > 0) {
+                        customTagsHtml = `<div style="margin-top: 10px;">${tags.map(t => `<span style="background: var(--accent); color: black; font-weight: bold; border-radius: 12px; padding: 3px 10px; font-size: 0.75rem; margin-right: 6px; display: inline-block;">✨ ${t}</span>`).join('')}</div>`;
+                    }
+                }
+                
+                document.getElementById('m-meta').innerHTML = `<span id="m-meta-text">${s.genre}</span> <span id="m-live-status"></span>${customTagsHtml}`;
                 
                 if(s.type === 'tv') {
                     ipcRenderer.invoke('get-tmdb-details', tmdbId, type).then(liveTmdb => {
@@ -1635,6 +1644,7 @@
                 // Header Actions
                 let actions = `<button class="btn-delete" onclick="if(confirm('Remove completely?')) { ipcRenderer.invoke('remove-show', ${s.id}).then(()=> { closeModal(); loadLibrary(); loadDash(); }) }">Delete</button>`;
                 if(s.type === 'tv') {
+                    actions += `<button class="btn-action" style="background:#a5a6f6; color:black; font-weight:bold;" onclick="triggerMemoryRefresh(${s.id})">🧠 Memory Refresh</button>`;
                     actions += s.is_stopped ? 
                         `<button class="btn-action" style="background:#34c759;" onclick="ipcRenderer.invoke('set-stopped', ${s.id}, 0).then(()=> { closeModal(); loadLibrary(); })">Restore Show</button>` : 
                         `<button class="btn-action" style="background:#ff9f0a;" onclick="ipcRenderer.invoke('set-stopped', ${s.id}, 1).then(()=> { closeModal(); loadLibrary(); })">Stop Watching</button>`;
@@ -2531,6 +2541,45 @@
                         }
                     }
                 });
+            }
+        }
+        async function triggerMemoryRefresh(showId) {
+            if (!aiService.getKey()) {
+                alert("Please add your Groq API key in Settings first to use AI features.");
+                return;
+            }
+            try {
+                const data = await ipcRenderer.invoke('get-show-details', showId);
+                const s = data.show;
+                const watchedEps = data.episodes.filter(ep => ep.is_watched);
+                if (watchedEps.length === 0) {
+                    alert("You haven't logged any episodes for this show yet.");
+                    return;
+                }
+                
+                // Show modal with loading state
+                document.getElementById('m-title').innerText = "🧠 Memory Refresh: " + s.title;
+                document.getElementById('m-poster').src = s.poster_url;
+                document.getElementById('m-meta').innerHTML = '';
+                document.getElementById('m-actions').innerHTML = '';
+                document.getElementById('m-overview').innerText = "Generating spoiler-free recap based on your watched episodes. Please wait...";
+                document.getElementById('m-body').innerHTML = '<div style="text-align:center; padding: 2rem;"><div class="loading-spinner" style="border: 4px solid #333; border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div><br>Analyzing story arc...</div>';
+                
+                const recap = await aiService.generateRecap(s.title, watchedEps);
+                
+                // Render recap
+                let renderedRecap = recap.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                document.getElementById('m-overview').innerHTML = '';
+                document.getElementById('m-body').innerHTML = `
+                    <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333;">
+                        <h3 style="margin-top:0; color:var(--accent);">Spoiler-Free Recap</h3>
+                        <div style="color: white; line-height: 1.6; font-size: 1rem;">${renderedRecap}</div>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                alert("Failed to generate recap: " + err.message);
+                closeModal();
             }
         }
 
