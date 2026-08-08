@@ -354,6 +354,13 @@
             <p id="sync-tz-status" style="color:var(--accent); margin-top:10px; text-align:center; font-weight:bold;"></p>
         </div>
         
+        <h3 style="margin-top: 2rem;">Fix Seen Dates</h3>
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; margin-bottom: 2rem;">
+            <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Refresh all your locally cached dates from the watch history database.</p>
+            <button class="btn-action" style="width:100%; padding:12px;" onclick="document.getElementById('fix-dates-status').innerText='Refreshing...'; loadLibrary().then(() => { document.getElementById('fix-dates-status').innerText='Successfully refreshed seen dates from database!'; setTimeout(() => document.getElementById('fix-dates-status').innerText='', 3000); loadDash(); })">Sync Seen Dates</button>
+            <p id="fix-dates-status" style="color:var(--accent); margin-top:10px; text-align:center; font-weight:bold;"></p>
+        </div>
+        
         <h3 style="margin-top: 2rem;">Notifications</h3>
         <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; margin-bottom: 2rem;">
             <p style="color:#aaa; font-size:0.9rem; margin-top:0; margin-bottom:15px;">Get native push notifications on your Laptop or Phone when an episode from your Watchlist airs today.</p>
@@ -1559,8 +1566,13 @@
                             nextEpDateHtml = `<span style="font-size:0.8rem; color:#aaa; margin-left:5px;">(Next: ${nextEp.air_date})</span>`;
                         }
                         
+                        let seenDateHtml = '';
+                        if (s.lastWatched && s.watchedEpisodes > 0) {
+                            seenDateHtml = `<div style="font-size:0.85rem; color:#aaa; margin-top:5px; margin-bottom:5px;">Seen on: ${new Date(s.lastWatched).toLocaleDateString()}</div>`;
+                        }
+                        
                         const ls = document.getElementById('m-live-status');
-                        if (ls) ls.innerHTML = `<div style="margin-top:10px;">${statusBadgeHtml} ${nextEpDateHtml}</div>`;
+                        if (ls) ls.innerHTML = `<div style="margin-top:10px;">${statusBadgeHtml} ${nextEpDateHtml} ${seenDateHtml}</div>`;
                     }).catch(e => console.error(e));
                 }
                 document.getElementById('m-overview').innerText = s.overview;
@@ -1635,7 +1647,9 @@
                 if(s.type === 'movie') {
                     const ep = data.episodes[0];
                     if(ep.is_watched) {
+                        const dateSeenHtml = s.lastWatched ? `<div style="font-size:0.9rem; color:#aaa; margin-top:5px; margin-bottom: 5px;">Seen on: ${new Date(s.lastWatched).toLocaleDateString()}</div>` : '';
                         body.innerHTML = `<h2>Status: <span style="color:var(--accent);">Watched ${ep.watch_count > 1 ? `(x${ep.watch_count})` : ''}</span></h2>
+                        ${dateSeenHtml}
                         <div style="display:flex; gap:10px; margin-top:1rem;">
                             <button class="btn-action" style="flex:1;" onclick="ipcRenderer.invoke('log-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Log Another Watch</button>
                             <button class="btn-action" style="flex:1; background:#333; color:white;" onclick="ipcRenderer.invoke('unlog-episode', ${ep.id}).then(()=>openModal(${tmdbId}, '${type}', true, ${localDbId}))">Unmark completely</button>

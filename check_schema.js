@@ -1,0 +1,7 @@
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient('https://gnwzertrmjerymlzzfuh.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdud3plcnRybWplcnltbHp6ZnVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwODU5MTIsImV4cCI6MjEwMDY2MTkxMn0.4Y8p6Um7qH8OUS6pAVpQDPxJ9d_wguqVKjnDiWESEZs');
+async function test() {
+    let { data } = await supabase.from('watch_history').select('*').limit(5);
+    console.log(data);
+}
+test();

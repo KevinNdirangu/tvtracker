@@ -7,6 +7,7 @@
     "start": "electron ."
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.111.0",
     "better-sqlite3": "^11.0.0",
     "electron": "^30.0.0",
     "papaparse": "^5.5.4"
