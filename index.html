@@ -1555,8 +1555,26 @@
 		
         // --- UNIVERSAL MODAL ---
         async function openModal(tmdbId, type, isLocal, localDbId = null) {
+            let initialPoster = "";
+            let initialTitle = "Loading...";
+
+            if (window.event) {
+                const target = window.event.target;
+                if (target && target.closest) {
+                    const card = target.closest('.poster-card');
+                    if (card) {
+                        const img = card.querySelector('img.poster-img');
+                        if (img) initialPoster = img.src;
+                        
+                        const titleEl = card.querySelector('.show-title') || card.querySelector('.ep-card-title');
+                        if (titleEl) initialTitle = titleEl.innerText;
+                    }
+                }
+            }
+
             document.getElementById('modal').style.display = 'flex';
-            document.getElementById('m-title').innerText = "Loading...";
+            document.getElementById('m-title').innerText = initialTitle;
+            document.getElementById('m-poster').src = initialPoster || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
             document.getElementById('m-body').innerHTML = "";
             document.getElementById('m-actions').innerHTML = "";
 
