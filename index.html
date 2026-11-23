@@ -417,15 +417,15 @@
             <!-- Auto Heal -->
             <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; grid-column: 1 / -1;">
                 <div>
-                    <h4 style="margin: 0 0 0.5rem 0;">Auto-Heal Library Database</h4>
-                    <div style="color: var(--text-muted); font-size: 0.85rem;">Scans your entire library for shows missing episode data (0/0) and automatically fetches and restores them from the TMDB database.</div>
+                    <h4 style="margin: 0 0 0.5rem 0;">Library Synchronisation</h4>
+                    <div style="color: var(--text-muted); font-size: 0.85rem;">Refreshes existing titles and episode details from TMDB. Each manual run checks the next 25 library items; repeat to work through the full library without sending thousands of requests at once. Existing watch history is preserved.</div>
                     <div id="heal-status" style="color: var(--accent); font-size: 0.85rem; margin-top: 0.5rem; font-weight: bold;"></div>
                     <div id="heal-progress-container" style="display:none; width:100%; height:8px; background:#222; border-radius:4px; margin-top:10px; overflow:hidden;">
                         <div id="heal-progress-bar" style="width:0%; height:100%; background:var(--accent); transition:width 0.2s;"></div>
                     </div>
                 </div>
                 <div style="margin-top: 1rem;">
-                    <button class="btn-action" id="btn-heal" style="width:100%;" onclick="runAutoHeal()">Run Auto-Heal</button>
+                    <button class="btn-action" id="btn-heal" style="width:100%;" onclick="runAutoHeal()">Refresh Next Batch (25)</button>
                 </div>
             </div>
 
@@ -689,65 +689,144 @@
             }
         }
 
-        // --- HEALING LOGIC ---
+        // --- HYBRID TMDB SYNCHRONISATION ---
+        let autoRefreshStarted = false;
+        const SYNC_CHECKS_KEY = 'tvt_sync_checked_at';
+        const SYNC_CURSOR_KEY = 'tvt_sync_cursor';
+        const AUTO_SYNC_LIMIT = 5;
+        const MANUAL_SYNC_BATCH_SIZE = 25;
+        const SYNC_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+
+        function getSyncCheckMap() {
+            try { return JSON.parse(localStorage.getItem(SYNC_CHECKS_KEY) || '{}'); }
+            catch (e) { return {}; }
+        }
+
+        function setSyncChecked(showId) {
+            const checks = getSyncCheckMap();
+            checks[String(showId)] = Date.now();
+            localStorage.setItem(SYNC_CHECKS_KEY, JSON.stringify(checks));
+        }
+
+        function syncPriority(a, b) {
+            const aGap = Math.max(0, (Number(a.totalEpisodes) || 0) - (Number(a.dbEpisodeCount) || 0));
+            const bGap = Math.max(0, (Number(b.totalEpisodes) || 0) - (Number(b.dbEpisodeCount) || 0));
+            if (aGap !== bGap) return bGap - aGap;
+            return Number(a.id) - Number(b.id);
+        }
+
+        async function runAutomaticRefresh() {
+            if (autoRefreshStarted || !Array.isArray(libraryData) || libraryData.length === 0) return;
+            autoRefreshStarted = true;
+
+            const checks = getSyncCheckMap();
+            const now = Date.now();
+            const candidates = libraryData
+                .filter(show => show.type === 'tv' || show.type === 'movie')
+                .filter(show => now - (Number(checks[String(show.id)]) || 0) >= SYNC_COOLDOWN_MS)
+                .sort(syncPriority)
+                .slice(0, AUTO_SYNC_LIMIT);
+
+            if (candidates.length === 0) return;
+
+            const status = document.getElementById('heal-status');
+            if (status) status.innerText = `Quietly checking ${candidates.length} library items for updates...`;
+
+            let updated = 0;
+            let failed = 0;
+            for (const show of candidates) {
+                try {
+                    await ipcRenderer.invoke('refresh-show', show.id);
+                    setSyncChecked(show.id);
+                    updated++;
+                } catch (error) {
+                    failed++;
+                    console.error('Automatic TMDB refresh failed for', show.title, error);
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            if (status) status.innerText = `Background check complete: ${updated} checked, ${failed} failed. Use Refresh Next Batch for a wider check.`;
+            if (updated > 0) await loadLibrary(false);
+        }
+
         async function runAutoHeal() {
             const btn = document.getElementById('btn-heal');
             const status = document.getElementById('heal-status');
             const barCont = document.getElementById('heal-progress-container');
             const bar = document.getElementById('heal-progress-bar');
-            
-            if (!libraryData || libraryData.length === 0) {
+
+            if (!Array.isArray(libraryData) || libraryData.length === 0) {
                 status.innerText = "Please load the library first.";
                 return;
             }
+            if (btn.disabled) return;
 
-            btn.disabled = true;
-            btn.innerText = "Analyzing...";
-            status.innerText = "";
-            
-            // Find broken shows (0 episodes in DB) that are 'Not Started'
-            const brokenShows = libraryData.filter(s => s.dbEpisodeCount === 0 && s.is_stopped !== 1 && s.type !== 'movie');
-            
-            if (brokenShows.length === 0) {
-                status.innerText = "Your Not Started shows are perfectly healthy! No missing data found.";
-                btn.disabled = false;
-                btn.innerText = "Run Auto-Heal";
+            const allItems = libraryData
+                .filter(show => show.type === 'tv' || show.type === 'movie')
+                .sort(syncPriority);
+            if (allItems.length === 0) {
+                status.innerText = "No refreshable library items were found.";
                 return;
             }
 
-            status.innerText = `Found ${brokenShows.length} broken shows. Healing started...`;
+            let cursor = Number(localStorage.getItem(SYNC_CURSOR_KEY)) || 0;
+            cursor = cursor % allItems.length;
+            const batch = allItems.slice(cursor, cursor + MANUAL_SYNC_BATCH_SIZE);
+            const selected = batch.length ? batch : allItems.slice(0, MANUAL_SYNC_BATCH_SIZE);
+            const nextCursor = (cursor + selected.length) % allItems.length;
+
+            btn.disabled = true;
+            btn.innerText = "Refreshing...";
+            status.innerText = `Refreshing ${selected.length} items from your library...`;
             barCont.style.display = "block";
             bar.style.width = "0%";
-            
-            let i = 0;
-            for (const show of brokenShows) {
-                i++;
-                btn.innerText = `Healing ${i} / ${brokenShows.length}`;
-                status.innerText = `Healing: ${show.title}...`;
-                bar.style.width = `${(i / brokenShows.length) * 100}%`;
-                
-                // This triggers the native background healing in script.js (getShowDetails)
+
+            let succeeded = 0;
+            let failed = 0;
+            for (let i = 0; i < selected.length; i++) {
+                const show = selected[i];
+                btn.innerText = `Refreshing ${i + 1} / ${selected.length}`;
+                status.innerText = `Checking: ${show.title}`;
+                bar.style.width = `${((i + 1) / selected.length) * 100}%`;
                 try {
-                    await ipcRenderer.invoke('get-show-details', show.id);
-                } catch(e) {
-                    console.error("Error healing", show.title, e);
+                    await ipcRenderer.invoke('refresh-show', show.id);
+                    setSyncChecked(show.id);
+                    succeeded++;
+                } catch (error) {
+                    failed++;
+                    console.error("Error refreshing", show.title, error);
                 }
-                
-                // Wait slightly to not overwhelm IPC/TMDB
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
-            
-            status.innerText = `Successfully healed ${brokenShows.length} shows! Reloading Library...`;
-            btn.innerText = "Heal Complete";
-            
-            await loadLibrary();
-            
+
+            localStorage.setItem(SYNC_CURSOR_KEY, String(nextCursor));
+            status.innerText = `Batch complete: ${succeeded} updated/checked, ${failed} failed. Run again to continue through the library.`;
+            btn.innerText = "Batch Complete";
+            await loadLibrary(false);
+
             setTimeout(() => {
                 barCont.style.display = "none";
-                status.innerText = "";
                 btn.disabled = false;
-                btn.innerText = "Run Auto-Heal";
-            }, 5000);
+                btn.innerText = "Refresh Next Batch (25)";
+            }, 2500);
+        }
+
+        async function refreshCurrentShow(showId) {
+            const status = document.getElementById('heal-status');
+            try {
+                status.innerText = "Refreshing show metadata from TMDB...";
+                const result = await ipcRenderer.invoke('refresh-show', showId);
+                setSyncChecked(showId);
+                status.innerText = `Refreshed successfully: ${result.inserted} new episodes, ${result.updated} episode corrections.`;
+                await loadLibrary(false);
+                if (currentOpenTmdbId && currentOpenType) {
+                    openModal(currentOpenTmdbId, currentOpenType, true, showId);
+                }
+            } catch (error) {
+                console.error(error);
+                status.innerText = "Refresh failed: " + error.message;
+            }
         }
 
         async function loadCalendar() {
@@ -1087,7 +1166,7 @@
             renderLibraryGrid();
         }
 
-        async function loadLibrary() {
+        async function loadLibrary(startAutomaticRefresh = true) {
             // Try in-memory first for fastest tab switching
             if(window.tvt_library) {
                 libraryData = window.tvt_library;
@@ -1113,6 +1192,7 @@
                 // Optionally re-render if we want to show new changes silently
                 renderLibraryGrid();
                 renderLibraryCarousels();
+                if (startAutomaticRefresh) runAutomaticRefresh();
             }
             
             const gSelect = document.getElementById('genreSelect');
@@ -1691,6 +1771,7 @@
                 
                 // Header Actions
                 let actions = `<button class="btn-delete" onclick="if(confirm('Remove completely?')) { ipcRenderer.invoke('remove-show', ${s.id}).then(()=> { closeModal(); loadLibrary(); loadDash(); }) }">Delete</button>`;
+                actions += `<button class="btn-action" style="background:#444; color:white;" onclick="refreshCurrentShow(${s.id})">↻ Refresh Metadata</button>`;
                 if(s.type === 'tv') {
                     if (aiService.isEnabled()) {
                         actions += `<button class="btn-action" style="background:#a5a6f6; color:black; font-weight:bold;" onclick="triggerMemoryRefresh(${s.id})">🧠 Memory Refresh</button>`;
