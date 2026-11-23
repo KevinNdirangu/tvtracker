@@ -691,6 +691,7 @@
 
         // --- HYBRID TMDB SYNCHRONISATION ---
         let autoRefreshStarted = false;
+        let syncInProgress = false;
         const SYNC_CHECKS_KEY = 'tvt_sync_checked_at';
         const SYNC_CURSOR_KEY = 'tvt_sync_cursor';
         const AUTO_SYNC_LIMIT = 5;
@@ -716,7 +717,7 @@
         }
 
         async function runAutomaticRefresh() {
-            if (autoRefreshStarted || !Array.isArray(libraryData) || libraryData.length === 0) return;
+            if (autoRefreshStarted || syncInProgress || !Array.isArray(libraryData) || libraryData.length === 0) return;
             autoRefreshStarted = true;
 
             const checks = getSyncCheckMap();
@@ -729,6 +730,7 @@
 
             if (candidates.length === 0) return;
 
+            syncInProgress = true;
             const status = document.getElementById('heal-status');
             if (status) status.innerText = `Quietly checking ${candidates.length} library items for updates...`;
 
@@ -748,6 +750,7 @@
 
             if (status) status.innerText = `Background check complete: ${updated} checked, ${failed} failed. Use Refresh Next Batch for a wider check.`;
             if (updated > 0) await loadLibrary(false);
+            syncInProgress = false;
         }
 
         async function runAutoHeal() {
@@ -760,11 +763,15 @@
                 status.innerText = "Please load the library first.";
                 return;
             }
-            if (btn.disabled) return;
+            if (btn.disabled || syncInProgress) {
+                status.innerText = "A library refresh is already running. Please wait for it to finish.";
+                return;
+            }
 
+            // Stable ID order makes the saved cursor reliably cover the full library across batches.
             const allItems = libraryData
                 .filter(show => show.type === 'tv' || show.type === 'movie')
-                .sort(syncPriority);
+                .sort((a, b) => Number(a.id) - Number(b.id));
             if (allItems.length === 0) {
                 status.innerText = "No refreshable library items were found.";
                 return;
@@ -776,6 +783,7 @@
             const selected = batch.length ? batch : allItems.slice(0, MANUAL_SYNC_BATCH_SIZE);
             const nextCursor = (cursor + selected.length) % allItems.length;
 
+            syncInProgress = true;
             btn.disabled = true;
             btn.innerText = "Refreshing...";
             status.innerText = `Refreshing ${selected.length} items from your library...`;
@@ -809,6 +817,7 @@
                 barCont.style.display = "none";
                 btn.disabled = false;
                 btn.innerText = "Refresh Next Batch (25)";
+                syncInProgress = false;
             }, 2500);
         }
 
