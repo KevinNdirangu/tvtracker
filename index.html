@@ -749,7 +749,10 @@
             }
 
             if (status) status.innerText = `Background check complete: ${updated} checked, ${failed} failed. Use Refresh Next Batch for a wider check.`;
-            if (updated > 0) await loadLibrary(false);
+            if (updated > 0) {
+                try { await loadLibrary(false); }
+                catch (error) { console.error("Could not reload library after automatic refresh:", error); }
+            }
             syncInProgress = false;
         }
 
@@ -811,7 +814,11 @@
             localStorage.setItem(SYNC_CURSOR_KEY, String(nextCursor));
             status.innerText = `Batch complete: ${succeeded} updated/checked, ${failed} failed. Run again to continue through the library.`;
             btn.innerText = "Batch Complete";
-            await loadLibrary(false);
+            try { await loadLibrary(false); }
+            catch (error) {
+                console.error("Could not reload library after manual refresh:", error);
+                status.innerText += " Library reload failed; refresh the page to reload it.";
+            }
 
             setTimeout(() => {
                 barCont.style.display = "none";
