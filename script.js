@@ -277,11 +277,12 @@ const api = {
         const { data: show } = await supabaseClient.from('shows').select('*').eq('id', localId).single();
         let { data: episodes } = await supabaseClient.from('episodes').select('*, watch_history(id, watched_at)').eq('show_id', localId);
         
-        // Self-heal missing episodes (fixes bug where shows were added but episode insertion failed)
+        // Self-heal shows with no episode rows without deleting or recreating existing records.
         if (!episodes || episodes.length === 0) {
             console.log("Healing missing episodes for", show.title);
-            await this.addMedia(show.api_id, show.type, false);
-            const { data: newEps } = await supabaseClient.from('episodes').select('*, watch_history(id, watched_at)').eq('show_id', localId);
+            await this.refreshShow(localId);
+            const { data: newEps, error: reloadError } = await supabaseClient.from('episodes').select('*, watch_history(id, watched_at)').eq('show_id', localId);
+            if (reloadError) throw reloadError;
             if (newEps) episodes = newEps;
         }
         
@@ -418,6 +419,138 @@ const api = {
             if (epData) await this.logEpisode(epData.id);
         }
         return true;
+    },
+
+    // Refresh metadata for an existing library item. Existing episode IDs are never changed.
+    async refreshShow(localId) {
+        const { data: show, error: showError } = await supabaseClient
+            .from('shows').select('*').eq('id', localId).single();
+        if (showError || !show) throw showError || new Error("Show not found.");
+
+        const data = await this.getTmdbDetails(show.api_id, show.type);
+        if (!data || data.success === false || !data.id) {
+            throw new Error(data && data.status_message ? data.status_message : "TMDB did not return valid show details.");
+        }
+
+        const isMovie = show.type === 'movie';
+        let allEpisodes = [];
+        if (isMovie) {
+            allEpisodes.push({
+                season_number: 1,
+                episode_number: 1,
+                name: data.title || data.name,
+                air_date: data.release_date || '',
+                runtime: data.runtime || 0
+            });
+        } else {
+            const seasonCount = Number(data.number_of_seasons) || 0;
+            for (let season = 1; season <= seasonCount; season++) {
+                const response = await fetch(`https://api.themoviedb.org/3/tv/${show.api_id}/season/${season}?api_key=${TMDB_KEY}`);
+                if (!response.ok) throw new Error(`TMDB season ${season} request failed (${response.status}).`);
+                const seasonData = await response.json();
+                if (seasonData.success === false) {
+                    throw new Error(seasonData.status_message || `TMDB could not load season ${season}.`);
+                }
+                if (Array.isArray(seasonData.episodes)) allEpisodes = allEpisodes.concat(seasonData.episodes);
+            }
+        }
+
+        const { data: existingEpisodes, error: episodesError } = await supabaseClient
+            .from('episodes')
+            .select('id, season_number, episode_number, title, air_date, runtime')
+            .eq('show_id', localId);
+        if (episodesError) throw episodesError;
+
+        const existingByKey = new Map();
+        (existingEpisodes || []).forEach(ep => {
+            const key = `${ep.season_number}-${ep.episode_number}`;
+            if (!existingByKey.has(key)) existingByKey.set(key, ep);
+        });
+
+        const timezoneShift = Number(show.timezone_offset) === 1 ? 1 : 0;
+        const updates = [];
+        const inserts = [];
+        let correctedCount = 0;
+
+        allEpisodes.forEach(ep => {
+            const seasonNumber = Number(ep.season_number);
+            const episodeNumber = Number(ep.episode_number);
+            if (!Number.isFinite(seasonNumber) || seasonNumber <= 0 || !Number.isFinite(episodeNumber)) return;
+
+            let airDate = ep.air_date || '';
+            if (airDate && timezoneShift) {
+                const date = new Date(`${airDate}T00:00:00Z`);
+                date.setUTCDate(date.getUTCDate() + timezoneShift);
+                airDate = date.toISOString().slice(0, 10);
+            }
+
+            const key = `${seasonNumber}-${episodeNumber}`;
+            const existing = existingByKey.get(key);
+            if (!existing) {
+                inserts.push({
+                    show_id: localId,
+                    season_number: seasonNumber,
+                    episode_number: episodeNumber,
+                    title: ep.name || '',
+                    air_date: airDate,
+                    runtime: Number(ep.runtime) || 0
+                });
+                return;
+            }
+
+            const patch = { id: existing.id };
+            if (ep.name && ep.name !== existing.title) patch.title = ep.name;
+            if (airDate && airDate !== existing.air_date) patch.air_date = airDate;
+            if (Number(ep.runtime) > 0 && Number(ep.runtime) !== Number(existing.runtime || 0)) {
+                patch.runtime = Number(ep.runtime);
+            }
+            if (Object.keys(patch).length > 1) {
+                updates.push(patch);
+                correctedCount++;
+            }
+        });
+
+        // Update by the existing primary key. This preserves every episode_id referenced by watch_history.
+        for (let i = 0; i < updates.length; i += 100) {
+            const { error } = await supabaseClient.from('episodes').upsert(updates.slice(i, i + 100), { onConflict: 'id' });
+            if (error) throw error;
+        }
+
+        let insertedCount = 0;
+        if (inserts.length > 0) {
+            const { data: maxEpisode, error: maxError } = await supabaseClient
+                .from('episodes').select('id').order('id', { ascending: false }).limit(1).maybeSingle();
+            if (maxError) throw maxError;
+            let nextId = (maxEpisode ? Number(maxEpisode.id) : 0) + 1;
+            inserts.forEach(ep => { ep.id = nextId++; });
+
+            for (let i = 0; i < inserts.length; i += 250) {
+                const chunk = inserts.slice(i, i + 250);
+                const { error } = await supabaseClient.from('episodes').insert(chunk);
+                if (error) throw error;
+                insertedCount += chunk.length;
+            }
+        }
+
+        // Refresh TMDB-owned show fields only. User ratings, notes, tags, stopped state and timezone choice remain untouched.
+        const showPatch = {
+            title: data.title || data.name || show.title,
+            genre: (data.genres || []).map(g => g.name).filter(Boolean).join(', ') || show.genre,
+            overview: data.overview || show.overview,
+            poster_url: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : show.poster_url,
+            total_episodes: isMovie ? 1 : (Number(data.number_of_episodes) || show.total_episodes || 0),
+            status: data.status || show.status
+        };
+        const { error: updateShowError } = await supabaseClient.from('shows').update(showPatch).eq('id', localId);
+        if (updateShowError) throw updateShowError;
+
+        return {
+            success: true,
+            showId: localId,
+            inserted: insertedCount,
+            updated: correctedCount,
+            checked: allEpisodes.length
+        };
     },
 
     async getNextId(tableName) {
@@ -638,6 +771,7 @@ window.ipcRenderer = {
         if(channel === 'get-tmdb-extra') return api.getTmdbExtra(...args);
         if(channel === 'get-tmdb-ep-details') return api.getTmdbEpDetails(...args);
         if(channel === 'add-media') return api.addMedia(...args);
+        if(channel === 'refresh-show') return api.refreshShow(...args);
         if(channel === 'remove-show') return api.removeShow(...args);
         if(channel === 'set-stopped') return api.setStopped(...args);
         if(channel === 'log-episode') return api.logEpisode(...args);
